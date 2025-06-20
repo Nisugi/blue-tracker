@@ -10,7 +10,7 @@ primary_region = 'dfw'
 
 [mounts]
   source = "db_volume"
-  destination = "data"
+  destination = "/data"
 
 [[vm]]
   memory = '1gb'

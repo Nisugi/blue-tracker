@@ -199,7 +199,7 @@ async def on_ready():
                 await replay_all(dst_guild)
                 print("[Bot] Replay complete, starting crawler...")
                 await slow_crawl(src_guild, db, build_snippet, 
-                               db_add_author, db_add_post, blue_ids)
+                               db_add_author, db_add_post, blue_ids, client)
             
             asyncio.create_task(replay_then_crawl())
             

@@ -97,13 +97,15 @@ async def iter_all_threads(parent: discord.TextChannel):
             return
         raise
 
-async def slow_crawl(src_guild, db, build_snippet, db_add_author, db_add_post, blue_ids):
+async def slow_crawl(src_guild, db, build_snippet, db_add_author, db_add_post, blue_ids, client):
     """Main crawler loop - runs continuously"""
-    me = src_guild.get_member(src_guild._state.user.id) or await src_guild.fetch_member(src_guild._state.user.id)
+    me = src_guild.get_member(client.user.id) or await src_guild.fetch_member(src_guild._state.user.id)
     cutoff = datetime.utcnow().replace(tzinfo=timezone.utc) - timedelta(days=CUTOFF_DAYS)
     
     cleanup_counter = 0
     sweep_number = 0
+    total_channels = len([c for c in src_guild.text_channels if c.id not in IGNORED_CHANNELS])
+
     print(f"[crawler] Starting slow crawl with {CUTOFF_DAYS} day cutoff")
 
     while True:
@@ -121,7 +123,7 @@ async def slow_crawl(src_guild, db, build_snippet, db_add_author, db_add_post, b
                     continue
                     
                 channels_processed += 1
-                print(f"[crawler] 📁 Processing channel #{parent.name} ({channels_processed}/{len([c for c in src_guild.text_channels if c.id not in IGNORED_CHANNELS])})")
+                print(f"[crawler] 📁 Processing channel #{parent.name} ({channels_processed}/{total_channels})")
                 
                 await crawl_one(parent, cutoff, me, db, build_snippet, blue_ids, db_add_author, db_add_post)
                 await asyncio.sleep(REQ_PAUSE)
@@ -142,7 +144,7 @@ async def slow_crawl(src_guild, db, build_snippet, db_add_author, db_add_post, b
             
             # Periodic cache cleanup
             cleanup_counter += 1
-            if cleanup_counter % 5 == 0:  # Every 5 sweeps
+            if cleanup_counter % 50 == 0:  # Every 5 sweeps
                 print(f"[crawler] 🧹 Running cache cleanup...")
                 cleanup_caches()
                 
