@@ -37,7 +37,8 @@ async def on_ready():
         await asyncio.sleep(1)
         src, dst = client.get_guild(SOURCE_GUILD_ID), client.get_guild(AGGREGATOR_GUILD_ID)
 
-    asyncio.to_thread(github_backup, "startup")
+    # backup db to github using github_backup.py
+    # asyncio.to_thread(github_backup, "startup")
     if not REPLAY_MODE:
         asyncio.create_task(slow_crawl(src, db, build_snippet, db_add_author, db_add_post, blue_ids))
 
