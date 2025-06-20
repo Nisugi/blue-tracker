@@ -19,7 +19,7 @@ import requests, base64, time
 
 
 REPO = "Nisugi/GSIV-BlueTracker"
-GITHUB_TOKEN = "INSERT_GITHUB_TOKEN" # github account settings -> developer settings -> fine-grained token  (Scopes: Contents: read & write only)
+GITHUB_TOKEN = os.getenv("GITHUB_TOKEN") # github account settings -> developer settings -> fine-grained token  (Scopes: Contents: read & write only)
 BRANCH = "main"
 
 def github_backup(label="auto"):
@@ -72,7 +72,7 @@ def github_backup(label="auto"):
 # Tracker
 ######################################################################################
 
-TOKEN                  = "INSERT_DISCORD_USER_TOKEN"  # log in to discorb web ui, developer settings -> network, start typing something and look for typing to show up in the box on the right. Authorization entry in the header is the token.
+TOKEN                  = os.getenv("DISCORD_TOKEN")  # log in to discorb web ui, developer settings -> network, start typing something and look for typing to show up in the box on the right. Authorization entry in the header is the token.
 SOURCE_GUILD_ID        = 226045346399256576     # GemStone IV guild
 AGGREGATOR_GUILD_ID    = 1383182313210511472    # GSIV_BlueTracker server
 CENTRAL_CHAN_ID        = 1383196587270078515    # #gm-tracker channel
