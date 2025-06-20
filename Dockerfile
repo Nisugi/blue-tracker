@@ -9,4 +9,4 @@ COPY . /app
 
 RUN mkdir -p /data
 
-CMD ["python", "/app/selfbot.py"]
+CMD ["python", "-m", "bot.main"]
