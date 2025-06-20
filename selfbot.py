@@ -20,6 +20,8 @@ import requests, base64, time
 
 REPO = "Nisugi/GSIV-BlueTracker"
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN") # github account settings -> developer settings -> fine-grained token  (Scopes: Contents: read & write only)
+if not GITHUB_TOKEN:
+    raise RuntimeError("GITHUB_TOKEN not set - fly secrets set GITHUB_TOKEN=...")
 BRANCH = "main"
 
 def github_backup(label="auto"):
@@ -73,6 +75,8 @@ def github_backup(label="auto"):
 ######################################################################################
 
 TOKEN                  = os.getenv("DISCORD_TOKEN")  # log in to discorb web ui, developer settings -> network, start typing something and look for typing to show up in the box on the right. Authorization entry in the header is the token.
+if not TOKEN:
+    raise RuntimeError("DISCORD_TOKEN not set - fly secrets set DISCORD_TOKEN=...")
 SOURCE_GUILD_ID        = 226045346399256576     # GemStone IV guild
 AGGREGATOR_GUILD_ID    = 1383182313210511472    # GSIV_BlueTracker server
 CENTRAL_CHAN_ID        = 1383196587270078515    # #gm-tracker channel
@@ -161,7 +165,7 @@ CREATE TABLE IF NOT EXISTS posts (
   chan_id   TEXT,
   author_id TEXT,
   ts        INTEGER,
-  content   TEXT
+  content   TEXT,
   replayed  INTEGER DEFAULT 0
 );
 CREATE TABLE IF NOT EXISTS authors(
