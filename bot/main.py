@@ -250,7 +250,7 @@ async def on_message(m: discord.Message):
 
     try:
         dst_guild = client.get_guild(AGGREGATOR_GUILD_ID)
-        await repost_live(m, dst_guild, client)
+        await repost_live(m, dst_guild, client, db)
 
         # Store live post in database
         blue_ids.add(m.author.id)
