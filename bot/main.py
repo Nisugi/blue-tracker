@@ -177,13 +177,13 @@ async def on_ready():
         db = await open_db()
         
         # Add replayed column if it doesn't exist
-        cutoff_dt = datetime(2025, 6, 21, 4, 59, 59, tzinfo=timezone.utc)
-        cutoff_timestamp = int(cutoff_dt.timestamp() * 1000)
+        # cutoff_dt = datetime(2025, 6, 21, 4, 59, 59, tzinfo=timezone.utc)
+        # cutoff_timestamp = int(cutoff_dt.timestamp() * 1000)
         
-        cursor = await db.execute("UPDATE posts SET replayed = 1 WHERE ts <= ?", (cutoff_timestamp,))
-        updated_count = cursor.rowcount
-        await db.commit()
-        print(f"[DB] Set {updated_count} posts before June 20 11:59 PM CDT as replayed")
+        # cursor = await db.execute("UPDATE posts SET replayed = 1 WHERE ts <= ?", (cutoff_timestamp,))
+        # updated_count = cursor.rowcount
+        # await db.commit()
+        # print(f"[DB] Set {updated_count} posts before June 20 11:59 PM CDT as replayed")
 
         # Initialize blue_ids with seed data
         blue_ids.update(SEED_BLUE_IDS)
