@@ -200,11 +200,6 @@ async def on_ready():
             )
         await db.commit()
         print(f"[DB] Initialized {len(GM_NAME_OVERRIDES)} GM name overrides")
-
-        # ONE-TIME RESET: Reset all messages to replayed = 0 for proper name replay
-        reset_result = await db.execute("UPDATE posts SET replayed = 0")
-        await db.commit()
-        print(f"[DB] ONE-TIME RESET: Set {reset_result.rowcount} messages back to replayed = 0")
         
         print(f"[Self-Bot] Logged in as {client.user} ({client.user.id})")
 
