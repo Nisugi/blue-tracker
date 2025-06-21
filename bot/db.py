@@ -15,6 +15,11 @@ CREATE TABLE IF NOT EXISTS authors(
   author_id TEXT PRIMARY KEY,
   author_name TEXT
 );
+CREATE TABLE IF NOT EXISTS gm_names(
+  author_id TEXT PRIMARY KEY,
+  gm_name TEXT NOT NULL,
+  notes TEXT
+);
 CREATE INDEX IF NOT EXISTS idx_posts_chan_id ON posts(chan_id);
 CREATE INDEX IF NOT EXISTS idx_posts_author_id ON posts(author_id);
 CREATE INDEX IF NOT EXISTS idx_posts_ts ON posts(ts);
@@ -116,3 +121,19 @@ async def cleanup_old_posts(db, days_to_keep=365):
     except Exception as e:
         print(f"[DB] Error cleaning up old posts: {e}")
         return 0
+
+async def get_gm_display_name(db, author_id, fallback_name):
+    """Get proper GM name with override priority: gm_names table > config override > fallback"""
+    from .config import GM_NAME_OVERRIDES
+    
+    # First check database override table
+    row = await fetchone(db, "SELECT gm_name FROM gm_names WHERE author_id = ?", (author_id,))
+    if row and row[0]:
+        return row[0]
+    
+    # Then check config overrides
+    if author_id in GM_NAME_OVERRIDES:
+        return GM_NAME_OVERRIDES[author_id]
+    
+    # Fall back to provided name
+    return fallback_name  
