@@ -40,7 +40,23 @@ async def initialize_gm_names(db):
         )
     await db.commit()
     print(f"[DB] Initialized {len(GM_NAME_OVERRIDES)} GM name overrides")
-  
+
+async def update_gm_name(db, author_id, new_name, notes=None):
+    """Update or add GM name override"""
+    await db.execute(
+        "INSERT OR REPLACE INTO gm_names (author_id, gm_name, notes) VALUES (?, ?, ?)",
+        (author_id, new_name, notes)
+    )
+    await db.commit()
+    print(f"[DB] Updated GM name: {author_id} -> {new_name}")
+
+async def list_gm_names(db):
+    """List all GM name overrides"""
+    rows = await fetchall(db, "SELECT author_id, gm_name, notes FROM gm_names ORDER BY gm_name")
+    for author_id, gm_name, notes in rows:
+        note_str = f" ({notes})" if notes else ""
+        print(f"{gm_name}: {author_id}{note_str}")
+      
 # ── One-time replay function ───────────────────────────────────────
 async def replay_all(dst_guild):
     """Replay all unreplayed messages from database"""
