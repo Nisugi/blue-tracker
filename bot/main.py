@@ -191,7 +191,7 @@ async def on_ready():
         if not REPLAY_MODE:
             # Start the crawler
             asyncio.create_task(slow_crawl(src_guild, db, build_snippet, 
-                                         db_add_author, db_add_post, blue_ids))
+                                         db_add_author, db_add_post, blue_ids, client))
         else:
             # Start replay mode, then start crawler when done
             print("[Bot] REPLAY_MODE enabled - starting replay...")
