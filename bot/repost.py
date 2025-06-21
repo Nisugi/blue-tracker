@@ -143,7 +143,7 @@ async def build_snippet(msg: discord.Message) -> str:
 
     return snippet
 
-async def repost_live(msg: discord.Message, dst_guild, client):
+async def repost_live(msg: discord.Message, dst_guild, client, db):
     """Send GM/CM message to both central channel and mirrored hierarchy"""
     jump = f"https://discord.com/channels/{msg.guild.id}/{msg.channel.id}/{msg.id}"
     snippet = await build_snippet(msg)
