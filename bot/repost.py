@@ -148,7 +148,9 @@ async def repost_live(msg: discord.Message, dst_guild, client):
     jump = f"https://discord.com/channels/{msg.guild.id}/{msg.channel.id}/{msg.id}"
     snippet = await build_snippet(msg)
 
-    body = (f"{msg.author.display_name} ({msg.guild.name} • #{msg.channel.name}):\n"
+    from .db import get_gm_display_name
+    display_name = await get_gm_display_name(db, msg.author.id, msg.author.display_name)
+    body = (f"{display_name} ({msg.guild.name} • #{msg.channel.name}):\n"
             f"{snippet}\n{jump}")
 
     # Send to central feed
@@ -159,7 +161,7 @@ async def repost_live(msg: discord.Message, dst_guild, client):
             await safe_webhook_send(
                 wh,
                 content=body,
-                username=msg.author.display_name,
+                username=display_name,
                 avatar_url=msg.author.display_avatar.url,
                 allowed_mentions=discord.AllowedMentions.none()
             )
@@ -175,7 +177,7 @@ async def repost_live(msg: discord.Message, dst_guild, client):
 
         kwargs = dict(
             content=body,
-            username=msg.author.display_name,
+            username=display_name,
             avatar_url=msg.author.display_avatar.url,
             allowed_mentions=discord.AllowedMentions.none()
         )
