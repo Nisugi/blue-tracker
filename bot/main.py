@@ -92,19 +92,12 @@ async def replay_all(dst_guild):
                 src_guild_name = src_ch.guild.name
                 src_channel_name = src_ch.name
 
-                # Get author info
+                # Get proper GM name
+                from .db import get_gm_display_name
                 row = await fetchone(db, "SELECT author_name FROM authors WHERE author_id = ?", (author_id,))
-                if row and row[0]:
-                    display_name = row[0]
-                    avatar = None  # Skip avatar fetch for performance
-                else:
-                    try:
-                        user = client.get_user(author_id) or await client.fetch_user(author_id)
-                        display_name = user.display_name if user else f"ID {author_id}"
-                        avatar = user.display_avatar.url if user else None
-                    except discord.NotFound:
-                        display_name = f"ID {author_id}"
-                        avatar = None
+                fallback_name = row[0] if row and row[0] else f"ID {author_id}"
+                display_name = await get_gm_display_name(db, author_id, fallback_name)
+                avatar = None  # Skip avatar fetch for performance during replay
 
                 # Build message content
                 jump = f"https://discord.com/channels/{src_ch.guild.id}/{chan_id}/{msg_id}"
@@ -197,6 +190,16 @@ async def on_ready():
         for uid in SEED_BLUE_IDS:
             await db.execute("INSERT OR IGNORE INTO authors VALUES (?, ?)", (uid, None))
         await db.commit()
+
+        # Initialize GM name overrides
+        from .config import GM_NAME_OVERRIDES
+        for author_id, gm_name in GM_NAME_OVERRIDES.items():
+            await db.execute(
+                "INSERT OR REPLACE INTO gm_names (author_id, gm_name) VALUES (?, ?)",
+                (author_id, gm_name)
+            )
+        await db.commit()
+        print(f"[DB] Initialized {len(GM_NAME_OVERRIDES)} GM name overrides")
         
         print(f"[Self-Bot] Logged in as {client.user} ({client.user.id})")
 
