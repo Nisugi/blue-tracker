@@ -6,7 +6,7 @@ from .repost import should_repost, repost_live, build_snippet
 from .crawler import slow_crawl
 from .github_backup import safe_github_backup
 
-client = discord.Client(intents=discord.Intents.none())
+client = discord.Client()
 db = None
 blue_ids = set(SEED_BLUE_IDS)
 
