@@ -1,10 +1,11 @@
 import discord, asyncio, time, signal, sys
 from .config import (TOKEN, SOURCE_GUILD_ID, AGGREGATOR_GUILD_ID, CENTRAL_CHAN_ID,
                      REPLAY_MODE, SEED_BLUE_IDS, DB_PATH, API_PAUSE)
-from .db import open_db, fetchone
+from .db import open_db, fetchone, fetchall
 from .repost import should_repost, repost_live, build_snippet
 from .crawler import slow_crawl
 from .github_backup import safe_github_backup
+from datetime import datetime, timezone
 
 client = discord.Client()
 db = None
@@ -126,12 +127,12 @@ async def replay_all(dst_guild):
                 )
                 if is_thread:
                     kwargs["thread"] = mirror
-                
-                await safe_webhook_send(wh, **kwargs)
-                
+
                 # Mark as replayed
                 await db.execute("UPDATE posts SET replayed = 1 WHERE id = ?", (msg_id,))
                 await db.commit()
+              
+                await safe_webhook_send(wh, **kwargs)
 
                 count += 1
                 elapsed = time.time() - start_time
@@ -176,14 +177,13 @@ async def on_ready():
         db = await open_db()
         
         # Add replayed column if it doesn't exist
-        try:
-            await db.execute("ALTER TABLE posts ADD COLUMN replayed INTEGER DEFAULT 0")
-            print("[DB] Added 'replayed' column to posts table.")
-        except Exception as e:
-            if "duplicate column name" in str(e).lower():
-                print("[DB] 'replayed' column already exists.")
-            else:
-                raise
+        cutoff_dt = datetime(2025, 6, 21, 4, 59, 59, tzinfo=timezone.utc)
+        cutoff_timestamp = int(cutoff_dt.timestamp() * 1000)
+        
+        cursor = await db.execute("UPDATE posts SET replayed = 1 WHERE ts <= ?", (cutoff_timestamp,))
+        updated_count = cursor.rowcount
+        await db.commit()
+        print(f"[DB] Set {updated_count} posts before June 20 11:59 PM CDT as replayed")
 
         # Initialize blue_ids with seed data
         blue_ids.update(SEED_BLUE_IDS)
