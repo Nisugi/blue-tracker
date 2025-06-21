@@ -29,6 +29,18 @@ async def db_add_author(u):
         (u.display_name or u.name, u.id)
     )
 
+async def initialize_gm_names(db):
+    """Initialize GM names table with config overrides"""
+    from .config import GM_NAME_OVERRIDES
+    
+    for author_id, gm_name in GM_NAME_OVERRIDES.items():
+        await db.execute(
+            "INSERT OR REPLACE INTO gm_names (author_id, gm_name) VALUES (?, ?)",
+            (author_id, gm_name)
+        )
+    await db.commit()
+    print(f"[DB] Initialized {len(GM_NAME_OVERRIDES)} GM name overrides")
+  
 # ── One-time replay function ───────────────────────────────────────
 async def replay_all(dst_guild):
     """Replay all unreplayed messages from database"""
