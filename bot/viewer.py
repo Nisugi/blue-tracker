@@ -675,12 +675,12 @@ search_template = '''
                 resultsDiv.innerHTML = data.results.map(post => `
                     <div class="post">
                         <div class="post-header">
-                            <span class="post-author">
+                            <span class="post-author"
                                 data-author-id="${post.author_id}">
                                 ${escapeHtml(post.author_name)}
                             </span>
                             <span> · </span>
-                            <span class="post-channel">
+                            <span class="post-channel"
                                 data-chan-id="${post.channel_id}">
                                 #${escapeHtml(post.channel)}
                             </span>
