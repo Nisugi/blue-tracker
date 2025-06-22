@@ -234,17 +234,34 @@ async def prime_channel_table(db, guild):
             (str(ch.id), ch.name, str(parent_id) if parent_id else None)
         )
 
+    print("[prime] Starting channel table seeding...")
+    
     # top-level text channels
     for ch in guild.text_channels:
+        print(f"[prime] Processing channel #{ch.name}")
         await upsert(ch)
 
         # active threads
         for th in ch.threads:
+            print(f"[prime] Processing active thread #{th.name}")
             await upsert(th, parent_id=ch.id)
 
-        # archived public threads (oldest-first)
-        async for th in ch.archived_threads(private=False):
-            await upsert(th, parent_id=ch.id)
+        # archived public threads - with detailed error handling
+        try:
+            print(f"[prime] Fetching archived threads for #{ch.name}")
+            thread_count = 0
+            async for th in ch.archived_threads(private=False):
+                print(f"[prime] Processing archived thread #{th.name}")
+                await upsert(th, parent_id=ch.id)
+                thread_count += 1
+            print(f"[prime] Processed {thread_count} archived threads for #{ch.name}")
+        except Exception as e:
+            print(f"[prime] Error processing archived threads for #{ch.name}: {e}")
+            print(f"[prime] Error type: {type(e)}")
+            import traceback
+            traceback.print_exc()
+            # Continue with other channels instead of failing completely
+            continue
 
     await db.commit()
     print(f"[prime] channels table seeded with {len(guild.text_channels)} channels + threads")
