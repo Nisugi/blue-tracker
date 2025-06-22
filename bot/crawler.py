@@ -123,10 +123,10 @@ async def crawl_one(ch, cutoff, me, db, build_snippet, blue_ids, db_add_author, 
                 await db_add_author(m.author)
                 snippet = await build_snippet(m)
                 
-                # Use INSERT OR IGNORE to handle duplicates gracefully
+                # Use INSERT OR REPLACE to handle any updates to existing messages
                 await execute_with_retry(
                     db,
-                    "INSERT INTO posts VALUES (?,?,?,?,?,?)",
+                    "INSERT OR REPLACE INTO posts VALUES (?,?,?,?,?,?)",
                     (m.id, m.channel.id, m.author.id,
                      int(m.created_at.timestamp()*1000), snippet, 0)
                 )
