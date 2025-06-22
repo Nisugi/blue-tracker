@@ -291,6 +291,8 @@ search_template = '''
     <title>BlueTracker Database Viewer</title>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/choices.js/public/assets/styles/choices.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/choices.js/public/assets/scripts/choices.min.js"></script>
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -439,9 +441,6 @@ search_template = '''
             background: #ff0;
             padding: 2px;
         }
-        .channel-box { max-height:200px; overflow-y:auto; border:1px solid #ddd;
-                       padding:10px; border-radius:4px; }
-        .channel-item { display:block; margin-bottom:2px; font-size:14px; }
     </style>
 </head>
 <body>
@@ -467,8 +466,7 @@ search_template = '''
             </div>
             
             <div class="filters">
-                <div id="channelBox" class="channel-box"></div>
-                <button onclick="clearChannels()">Clear Channel Selection</button>
+                <select id="channelSelect" multiple></select>
                 <input type="date" id="dateFrom" placeholder="From date">
                 <input type="date" id="dateTo" placeholder="To date">
                 <button onclick="clearFilters()">Clear Filters</button>
@@ -513,30 +511,37 @@ search_template = '''
         }
 
         // Load channels selection dropdown
+        let channelChoices;   // Choices instance
+
         async function loadChannels() {
             try {
                 const res   = await fetch('/api/channels');
                 const chans = await res.json();
-                const box   = document.getElementById('channelBox');
+
+                const select = document.getElementById('channelSelect');
                 chans.forEach(c => {
-                    const label = document.createElement('label');
-                    label.className = 'channel-item';
-                    label.innerHTML =
-                      `<input type="checkbox" value="${c.id}"> ${escapeHtml(c.name)}`;
-                    box.appendChild(label);
+                    const opt = document.createElement('option');
+                    opt.value = c.id;
+                    opt.text  = c.name;
+                    select.appendChild(opt);
                 });
-            } catch (e) { console.error('loadChannels failed:', e); }
+
+                // turn <select multiple> into searchable multiselect
+                channelChoices = new Choices(select, {
+                    removeItemButton: true,
+                    placeholder: true,
+                    placeholderValue: 'Select channels…',
+                    searchPlaceholderValue: 'Type to search',
+                    shouldSort: false
+                });
+            } catch (e) {
+                console.error('loadChannels failed:', e);
+            }
         }
+
         function selectedChannelIds() {
-            return Array.from(
-                document.querySelectorAll('#channelBox input:checked')
-            ).map(cb => cb.value).join(',');
+            return channelChoices ? channelChoices.getValue(true).join(',') : '';
         }
-        function clearChannels() {
-            document.querySelectorAll('#channelBox input:checked')
-                    .forEach(cb => cb.checked = false);
-        }
-        
         // Load statistics
         async function loadStats() {
             try {
@@ -566,13 +571,13 @@ search_template = '''
             currentPage = page;
             
             const params = new URLSearchParams({
-                q: document.getElementById('searchQuery').value,
-                gm_id: document.getElementById('gmFilter').value,
-                channels: selectedChannelIds(),        // ← new line
-                date_from: document.getElementById('dateFrom').value,
-                date_to:   document.getElementById('dateTo').value,
-                page, per_page: 50
-            });
+            q: document.getElementById('searchQuery').value,
+            gm_id: document.getElementById('gmFilter').value,
+            channels: selectedChannelIds(),      // ← use the helper
+            date_from: document.getElementById('dateFrom').value,
+            date_to: document.getElementById('dateTo').value,
+            page, per_page: 50
+        });
 
             
             const resultsDiv = document.getElementById('results');
@@ -645,13 +650,13 @@ search_template = '''
         }
         
         // Clear all filters
-        function clearFilters() {
-            document.getElementById('searchQuery').value = '';
-            document.getElementById('gmFilter').value = '';
-            document.getElementById('channelFilter').value = '';
-            document.getElementById('dateFrom').value = '';
-            document.getElementById('dateTo').value = '';
-            search();
+        function clearFilters() { 
+            document.getElementById('searchQuery').value = ''; 
+            document.getElementById('gmFilter').value = ''; 
+            channelChoices.clearStore(); // clears the pills 
+            document.getElementById('dateFrom').value = ''; 
+            document.getElementById('dateTo').value = ''; 
+            search(); 
         }
         
         // Utility functions
@@ -684,7 +689,7 @@ search_template = '''
         }
         
         function escapeRegex(string) {
-            return str.replace(/[.*+?^${}()|\\[\\]\\\\]/g, '\\\\$&');
+            return string.replace(/[.*+?^${}()|\\[\\]\\\\]/g, '\\\\$&');
         }
         
         // Initialize
