@@ -1,5 +1,6 @@
-import aiosqlite
+import aiosqlite, re
 from .config import DB_PATH
+DIGITS_ONLY = re.compile(r'^\d+$')
 
 CREATE_SQL = """
 PRAGMA journal_mode=WAL;
@@ -171,10 +172,24 @@ async def ensure_parent_column(db):
     print("[DB] parent_id column added successfully")
 
 async def backfill_channel_names(db, client):
+    # ➊ everything that is null / empty **or** looks like an ID
     rows = await db.execute_fetchall(
-        "SELECT chan_id FROM channels WHERE name IS NULL OR name = ''")
+        """
+        SELECT chan_id, COALESCE(name,'')            -- name may be NULL
+        FROM   channels
+        WHERE  name IS NULL 
+           OR  name = ''
+           OR  name GLOB '[0-9]*'                    -- all digits? (SQLite)
+        """
+    )
+
     print(f"[names] filling {len(rows)} missing channel/thread names …")
-    for (cid,) in rows:
+
+    for cid, current in rows:
+        # (extra safety when running on older SQLite that lacks GLOB)
+        if current and not DIGITS_ONLY.fullmatch(current):
+            continue
+
         try:
             ch = await client.fetch_channel(int(cid))
             await execute_with_retry(
@@ -183,8 +198,9 @@ async def backfill_channel_names(db, client):
                 (ch.name, cid)
             )
         except discord.Forbidden:
-            # bot can’t see it – leave as is
+            # bot can’t see it – leave unchanged
             pass
         except Exception as e:
             print(f"[names] {cid}: {e}")
+
     await db.commit()
