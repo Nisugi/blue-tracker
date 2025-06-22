@@ -171,20 +171,19 @@ async def crawl_one(ch, cutoff, me, db, build_snippet, blue_ids, db_add_author, 
         print(f"[crawler] ❌ Unexpected error in #{ch.name}: {e}")
 
 async def iter_all_threads(parent: discord.TextChannel):
-    """Yield active threads first, then archived public threads (oldest-first)."""
+    """Yield active threads first, then archived public threads."""
     # Active threads first
     for th in parent.threads:
         yield th
 
     # Then archived public threads
     try:
-        archived = [
-            th async for th in parent.archived_threads(
-                limit=None,      # newest-first by default
-                private=False    # public only
-            )
-        ]
-        # Reverse to get oldest-first order
+        # Fixed: Removed oldest_first parameter and collect all first
+        archived = []
+        async for th in parent.archived_threads(limit=None, private=False):
+            archived.append(th)
+        
+        # Reverse to get oldest-first order (since Discord returns newest-first by default)
         for th in reversed(archived):
             yield th
     except discord.Forbidden:
