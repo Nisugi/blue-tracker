@@ -1,6 +1,6 @@
 import aiosqlite, re
 from .config import DB_PATH
-DIGITS_ONLY = re.compile(r'^\d+$')
+DIGITS_ONLY = re.compile(r'^#?\d+$')
 
 CREATE_SQL = """
 PRAGMA journal_mode=WAL;
