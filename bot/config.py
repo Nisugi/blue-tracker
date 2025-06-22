@@ -2,7 +2,7 @@ import os
 from pathlib import Path
 
 # Set to true to repost new messages from the database
-REPLAY_MODE = True
+REPLAY_MODE = False
 
 TOKEN         = os.getenv("DISCORD_TOKEN")
 GITHUB_TOKEN  = os.getenv("GITHUB_TOKEN")
