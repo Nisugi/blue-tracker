@@ -724,7 +724,7 @@ search_template = '''
         function clearFilters() { 
             document.getElementById('searchQuery').value = '';
             document.getElementById('gmFilter').value = '';
-            channelChoices.clearStore(); // clears the pills
+            channelChoices.removeActiveItems(); 
             document.getElementById('dateFrom').value = '';
             document.getElementById('dateTo').value = '';
             history.replaceState(null,'',location.pathname);
