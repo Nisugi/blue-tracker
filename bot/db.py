@@ -180,6 +180,7 @@ async def backfill_channel_names(db, client):
         WHERE  name IS NULL 
            OR  name = ''
            OR  name GLOB '[0-9]*'                    -- all digits? (SQLite)
+           OR  name GLOB '#[0-9]*'
         """
     )
 
