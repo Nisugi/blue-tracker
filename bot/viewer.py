@@ -753,11 +753,12 @@ search_template = '''
             if (phrases) {
                 phrases.forEach(phrase => {
                     const clean = phrase.replace(/"/g, '');
-                    const regex = new RegExp(escapeRegex(clean), 'gi');
-                    text = text.replace(regex, match => `<span class="highlight">${match}</span>`);
+                    try {
+                        const regex = new RegExp(escapeRegex(clean), 'gi');
+                        text = text.replace(regex, match => `<span class="highlight">${match}</span>`);
+                    } catch (_) { /* ignore malformed pattern */ }
                 });
             }
-            
             return text;
         }
         
