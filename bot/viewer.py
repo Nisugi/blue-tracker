@@ -439,6 +439,9 @@ search_template = '''
             background: #ff0;
             padding: 2px;
         }
+        .channel-box { max-height:200px; overflow-y:auto; border:1px solid #ddd;
+                       padding:10px; border-radius:4px; }
+        .channel-item { display:block; margin-bottom:2px; font-size:14px; }
     </style>
 </head>
 <body>
@@ -464,7 +467,8 @@ search_template = '''
             </div>
             
             <div class="filters">
-                <input type="text" id="channelFilter" placeholder="Channel ID">
+                <div id="channelBox" class="channel-box"></div>
+                <button onclick="clearChannels()">Clear Channel Selection</button>
                 <input type="date" id="dateFrom" placeholder="From date">
                 <input type="date" id="dateTo" placeholder="To date">
                 <button onclick="clearFilters()">Clear Filters</button>
@@ -507,6 +511,31 @@ search_template = '''
                 console.error('Failed to load GMs:', error);
             }
         }
+
+        // Load channels selection dropdown
+        async function loadChannels() {
+            try {
+                const res   = await fetch('/api/channels');
+                const chans = await res.json();
+                const box   = document.getElementById('channelBox');
+                chans.forEach(c => {
+                    const label = document.createElement('label');
+                    label.className = 'channel-item';
+                    label.innerHTML =
+                      `<input type="checkbox" value="${c.id}"> ${escapeHtml(c.name)}`;
+                    box.appendChild(label);
+                });
+            } catch (e) { console.error('loadChannels failed:', e); }
+        }
+        function selectedChannelIds() {
+            return Array.from(
+                document.querySelectorAll('#channelBox input:checked')
+            ).map(cb => cb.value).join(',');
+        }
+        function clearChannels() {
+            document.querySelectorAll('#channelBox input:checked')
+                    .forEach(cb => cb.checked = false);
+        }
         
         // Load statistics
         async function loadStats() {
@@ -539,12 +568,12 @@ search_template = '''
             const params = new URLSearchParams({
                 q: document.getElementById('searchQuery').value,
                 gm_id: document.getElementById('gmFilter').value,
-                channel_id: document.getElementById('channelFilter').value,
+                channels: selectedChannelIds(),        // ← new line
                 date_from: document.getElementById('dateFrom').value,
-                date_to: document.getElementById('dateTo').value,
-                page: page,
-                per_page: 50
+                date_to:   document.getElementById('dateTo').value,
+                page, per_page: 50
             });
+
             
             const resultsDiv = document.getElementById('results');
             resultsDiv.innerHTML = '<div class="loading">Searching...</div>';
@@ -661,6 +690,7 @@ search_template = '''
         // Initialize
         window.onload = async function() {
             await loadGMs();
+            await loadChannels();
             await loadStats();
             search();
             
