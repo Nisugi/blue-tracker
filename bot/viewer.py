@@ -441,6 +441,21 @@ search_template = '''
             background: #ff0;
             padding: 2px;
         }
+        .filters { 
+            align-items: center; 
+            }
+        /* size of the closed input */ 
+        .choices__inner { 
+            padding: 6px 40px 6px 12px;
+            min-height: 38px;
+            line-height: 22px; 
+        }
+        .choices__list--multiple.choices__item {
+            margin: 0 4px 4px 0; 
+        } 
+        #channelSelect + .choices { 
+            max-width: 320px; 
+        }
     </style>
 </head>
 <body>
