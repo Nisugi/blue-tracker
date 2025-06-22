@@ -169,24 +169,24 @@ async def repost_live(msg: discord.Message, dst_guild, client, db):
             print(f"[repost] Failed to send to central channel: {e}")
 
     # Send to mirrored hierarchy
-    try:
-        mirror = await ensure_mirror(dst_guild, msg.channel)
-        is_thread = isinstance(mirror, discord.Thread)
-        parent = mirror.parent if is_thread else mirror
-        wh2 = await get_webhook(parent)
-
-        kwargs = dict(
-            content=body,
-            username=display_name,
-            avatar_url=msg.author.display_avatar.url,
-            allowed_mentions=discord.AllowedMentions.none()
-        )
-        if is_thread:
-            kwargs["thread"] = mirror
-
-        await safe_webhook_send(wh2, **kwargs)
-    except Exception as e:
-        print(f"[repost] Failed to send to mirror: {e}")
+#    try:
+#        mirror = await ensure_mirror(dst_guild, msg.channel)
+#        is_thread = isinstance(mirror, discord.Thread)
+#        parent = mirror.parent if is_thread else mirror
+#        wh2 = await get_webhook(parent)
+#
+#        kwargs = dict(
+#            content=body,
+#            username=display_name,
+#            avatar_url=msg.author.display_avatar.url,
+#            allowed_mentions=discord.AllowedMentions.none()
+#        )
+#        if is_thread:
+#            kwargs["thread"] = mirror
+#
+#        await safe_webhook_send(wh2, **kwargs)
+#    except Exception as e:
+#        print(f"[repost] Failed to send to mirror: {e}")
 
 def cleanup_caches():
     """Clean up caches to prevent memory leaks"""
