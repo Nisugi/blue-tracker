@@ -639,7 +639,7 @@ search_template = '''
         }
         
         function escapeRegex(string) {
-            return string.replace(/\[.*+?^${}()|\[\]\\]/g, '\\$&');
+            return str.replace(/[.*+?^${}()|\\[\\]\\\\]/g, '\\\\$&');
         }
         
         // Initialize
