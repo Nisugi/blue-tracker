@@ -4,6 +4,7 @@ from .config import (TOKEN, SOURCE_GUILD_ID, AGGREGATOR_GUILD_ID, CENTRAL_CHAN_I
 from .db import open_db, fetchone, fetchall, ensure_parent_column
 from .repost import should_repost, repost_live, build_snippet
 from .crawler import slow_crawl
+from .config import FULL_BACKFILL_RUN
 from .github_backup import safe_github_backup
 from datetime import datetime, timezone
 
@@ -180,6 +181,7 @@ async def on_ready():
             await db.execute("DELETE FROM crawl_progress")
             await db.commit()
             print("[crawler] 🔄 Full back-fill run: progress reset")
+          
             await ensure_parent_column(db)
         # Add replayed column if it doesn't exist
         # cutoff_dt = datetime(2025, 6, 21, 4, 59, 59, tzinfo=timezone.utc)
