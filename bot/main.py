@@ -176,8 +176,8 @@ async def on_ready():
     
     try:
         db = await open_db()
-        await cleanse_numeric_placeholders(db)
-        await backfill_channel_names(db, client)
+        # await cleanse_numeric_placeholders(db)
+        # await backfill_channel_names(db, client)
         if FULL_BACKFILL_RUN:
         # clear progress so every channel starts fresh
             await db.execute("DELETE FROM crawl_progress")
@@ -223,6 +223,8 @@ async def on_ready():
             await asyncio.sleep(1)
             src_guild = client.get_guild(SOURCE_GUILD_ID)
             dst_guild = client.get_guild(AGGREGATOR_GUILD_ID)
+
+        await prime_channel_table(db, src_guild)
 
         # Show database stats
         row = await fetchone(db, "SELECT COUNT(*) FROM posts")
