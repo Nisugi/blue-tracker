@@ -535,7 +535,7 @@ search_template = '''
         
         // Load GMs for dropdown
         async function loadGMs() {
-            try {
+                try {
                 const response = await fetch('/api/gms');
                 const gms = await response.json();
                 
@@ -582,6 +582,34 @@ search_template = '''
         function selectedChannelIds() {
             return channelChoices ? channelChoices.getValue(true).join(',') : '';
         }
+
+        function readFiltersFromUI() {
+            return {
+                q:        document.getElementById('searchQuery').value,
+                gm:       document.getElementById('gmFilter').value,
+                channels: selectedChannelIds(),        // already returns "id1,id2"
+                from:     document.getElementById('dateFrom').value,
+                to:       document.getElementById('dateTo').value,
+                page:     currentPage
+           };
+        }
+
+        function applyFiltersToUI(f) {
+            document.getElementById('searchQuery').value = f.q   || '';
+            document.getElementById('gmFilter').value     = f.gm || '';
+            document.getElementById('dateFrom').value     = f.from || '';
+            document.getElementById('dateTo').value       = f.to   || '';
+        
+            /* channels: set via Choices.js */
+            if (channelChoices) {
+                channelChoices.removeActiveItems();
+                (f.channels || '').split(',').filter(Boolean).forEach(id => {
+                    channelChoices.setChoiceByValue(id);
+                });
+            }
+            currentPage = parseInt(f.page || 1, 10);
+        }
+
         // Load statistics
         async function loadStats() {
             try {
@@ -609,16 +637,21 @@ search_template = '''
         // Search function
         async function search(page = 1) {
             currentPage = page;
+
+            const f = readFiltersFromUI();
+            f.page = page;
+            const url = new URL(window.location);
+            Object.entries(f).forEach(([k, v]) =>
+                v ? url.searchParams.set(k, v) : url.searchParams.delete(k)
+            );
+            history.replaceState(null, '', url);
+            localStorage.setItem('btFilters', JSON.stringify(f));
             
             const params = new URLSearchParams({
-            q: document.getElementById('searchQuery').value,
-            gm_id: document.getElementById('gmFilter').value,
-            channels: selectedChannelIds(),      // ← use the helper
-            date_from: document.getElementById('dateFrom').value,
-            date_to: document.getElementById('dateTo').value,
-            page, per_page: 50
-        });
-
+                q: f.q, gm_id: f.gm, channels: f.channels,
+                date_from: f.from, date_to: f.to,
+                page: f.page, per_page: 50
+            });
             
             const resultsDiv = document.getElementById('results');
             resultsDiv.innerHTML = '<div class="loading">Searching...</div>';
@@ -737,7 +770,16 @@ search_template = '''
             await loadGMs();
             await loadChannels();
             await loadStats();
-            search();
+            let f;
+            if (location.search.length > 1) {
+                f = Object.fromEntries(new URLSearchParams(location.search));
+            } else {
+                f = JSON.parse(localStorage.getItem('btFilters') || '{}');
+            }
+            applyFiltersToUI(f);
+
+            /* 2. run the first search */
+            search(parseInt(f.page || 1, 10));
             
             // Enter key in search box
             document.getElementById('searchQuery').addEventListener('keypress', function(e) {
