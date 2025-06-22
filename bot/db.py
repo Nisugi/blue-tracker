@@ -23,7 +23,7 @@ CREATE TABLE IF NOT EXISTS gm_names(
 CREATE TABLE IF NOT EXISTS channels (
   chan_id     TEXT PRIMARY KEY,
   name        TEXT,
-  parent_id   TEXT,
+ -- parent_id   TEXT,
   accessible  INTEGER NOT NULL DEFAULT 1       -- 1 = visible, 0 = no-access
 );
 
@@ -37,7 +37,7 @@ CREATE INDEX IF NOT EXISTS idx_posts_author_id ON posts(author_id);
 CREATE INDEX IF NOT EXISTS idx_posts_ts ON posts(ts);
 CREATE INDEX IF NOT EXISTS idx_posts_replayed ON posts(replayed);
 CREATE INDEX IF NOT EXISTS idx_channels_name   ON channels(name);
-CREATE INDEX IF NOT EXISTS idx_channels_parent ON channels(parent_id);
+-- CREATE INDEX IF NOT EXISTS idx_channels_parent ON channels(parent_id);
 """
 
 async def open_db():
