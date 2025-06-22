@@ -6,6 +6,7 @@ from .config import REQ_PAUSE, PAGE_SIZE, CUTOFF_DAYS, CRAWL_VERBOSITY, IGNORED_
 
 save_counter = 0
 inaccessible_channels = set()  # Cache of channel IDs we can't access
+FULL_BACKFILL_RUN = True
 
 # New table to track crawl progress
 CREATE_PROGRESS_TABLE = """
