@@ -1,11 +1,40 @@
 import asyncio, discord, time
 from datetime import datetime, timedelta, timezone
-from .db import fetchone
+from .db import fetchone, execute_with_retry
 from .repost import should_repost, cleanup_caches
 from .config import REQ_PAUSE, PAGE_SIZE, CUTOFF_DAYS, CRAWL_VERBOSITY, IGNORED_CHANNELS
 
 save_counter = 0
 inaccessible_channels = set()  # Cache of channel IDs we can't access
+
+# New table to track crawl progress
+CREATE_PROGRESS_TABLE = """
+CREATE TABLE IF NOT EXISTS crawl_progress (
+    chan_id TEXT PRIMARY KEY,
+    last_seen_id INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL
+);
+"""
+
+async def get_last_seen_id(db, chan_id):
+    """Get the last message ID we've seen in this channel"""
+    # First check progress table
+    row = await fetchone(db, "SELECT last_seen_id FROM crawl_progress WHERE chan_id = ?", (chan_id,))
+    if row and row[0]:
+        return int(row[0])
+    
+    # Fall back to posts table for backward compatibility
+    row = await fetchone(db, "SELECT MAX(id) FROM posts WHERE chan_id = ?", (chan_id,))
+    return int(row[0]) if row and row[0] else None
+
+async def update_last_seen_id(db, chan_id, message_id):
+    """Update the last message ID we've seen in this channel"""
+    timestamp = int(time.time() * 1000)
+    await execute_with_retry(
+        db,
+        "INSERT OR REPLACE INTO crawl_progress (chan_id, last_seen_id, updated_at) VALUES (?, ?, ?)",
+        (chan_id, message_id, timestamp)
+    )
 
 async def crawl_one(ch, cutoff, me, db, build_snippet, blue_ids, db_add_author, db_add_post):
     """Crawl one channel or thread for messages"""
@@ -23,14 +52,14 @@ async def crawl_one(ch, cutoff, me, db, build_snippet, blue_ids, db_add_author, 
         print(f"[crawler] 🚫 No access to #{ch.name} (ID: {ch.id}) - caching for future skips")
         return
 
-    row = await fetchone(db, "SELECT MAX(id) FROM posts WHERE chan_id = ?", (ch.id,))
-    last_processed_id = int(row[0]) if row and row[0] else None
-    after = discord.Object(id=last_processed_id) if last_processed_id else None
+    # Get the last message ID we've seen (not just saved)
+    last_seen_id = await get_last_seen_id(db, ch.id)
+    after = discord.Object(id=last_seen_id) if last_seen_id else None
     
     pulled = 0
     saved_this_run = 0
     new_messages_found = 0
-    highest_id_this_run = last_processed_id
+    highest_id_this_run = last_seen_id
 
     try:
         # Use timeout to prevent hanging on slow channels
@@ -39,13 +68,15 @@ async def crawl_one(ch, cutoff, me, db, build_snippet, blue_ids, db_add_author, 
         
         messages = await asyncio.wait_for(_get_messages(), timeout=15.0)
         
+        # If we got messages, update our progress tracker
+        if messages:
+            # Track the highest message ID we've seen
+            highest_id_this_run = max(m.id for m in messages)
+            
         for m in messages:
             if m.created_at < cutoff:
                 break
             pulled += 1
-
-            if highest_id_this_run is None or m.id > highest_id_this_run:
-                highest_id_this_run = m.id
 
             existing = await fetchone(db, "SELECT id FROM posts WHERE id = ?", (m.id,))
             if existing:
@@ -59,7 +90,8 @@ async def crawl_one(ch, cutoff, me, db, build_snippet, blue_ids, db_add_author, 
                 snippet = await build_snippet(m)
                 
                 # Use INSERT OR IGNORE to handle duplicates gracefully
-                await db.execute(
+                await execute_with_retry(
+                    db,
                     "INSERT INTO posts VALUES (?,?,?,?,?,?)",
                     (m.id, m.channel.id, m.author.id,
                      int(m.created_at.timestamp()*1000), snippet, 0)
@@ -70,6 +102,11 @@ async def crawl_one(ch, cutoff, me, db, build_snippet, blue_ids, db_add_author, 
                 
                 await db.commit()
         
+        # Update our progress tracker with the highest ID we've seen
+        if highest_id_this_run and highest_id_this_run != last_seen_id:
+            await update_last_seen_id(db, ch.id, highest_id_this_run)
+            await db.commit()
+        
         # Show progress for this channel/thread
         ch_type = "thread" if isinstance(ch, discord.Thread) else "channel"
         if new_messages_found > 0:
@@ -77,7 +114,8 @@ async def crawl_one(ch, cutoff, me, db, build_snippet, blue_ids, db_add_author, 
         elif pulled > 0:
             print(f"[crawler] #{ch.name:<30} ({ch_type:<7}) pulled={pulled:<3} (all duplicates) saved={saved_this_run:<2}")
         else:
-            print(f"[crawler] #{ch.name:<30} ({ch_type:<7}) no new messages")
+            # No new messages - we're caught up
+            pass
                 
     except asyncio.TimeoutError:
         print(f"[crawler] ⚠️  TIMEOUT in #{ch.name} - skipping this pass")
@@ -126,6 +164,10 @@ async def iter_all_threads(parent: discord.TextChannel):
 async def slow_crawl(src_guild, db, build_snippet, db_add_author, db_add_post, blue_ids, client):
     """Main crawler loop - runs continuously"""
     global inaccessible_channels
+    
+    # Ensure progress table exists
+    await db.executescript(CREATE_PROGRESS_TABLE)
+    await db.commit()
     
     me = src_guild.get_member(client.user.id) or await src_guild.fetch_member(src_guild._state.user.id)
     cutoff = datetime.utcnow().replace(tzinfo=timezone.utc) - timedelta(days=CUTOFF_DAYS)
@@ -214,3 +256,16 @@ def clear_inaccessible_cache():
     count = len(inaccessible_channels)
     inaccessible_channels.clear()
     return count
+
+async def cleanup_old_progress(db, days=30):
+    """Clean up old progress entries for channels that no longer exist"""
+    cutoff_ts = int((time.time() - (days * 24 * 60 * 60)) * 1000)
+    cursor = await db.execute(
+        "DELETE FROM crawl_progress WHERE updated_at < ?",
+        (cutoff_ts,)
+    )
+    deleted = cursor.rowcount
+    if deleted > 0:
+        await db.commit()
+        print(f"[crawler] Cleaned up {deleted} old progress entries")
+    return deleted
