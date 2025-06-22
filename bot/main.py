@@ -176,27 +176,20 @@ async def on_ready():
     
     try:
         db = await open_db()
-        # await cleanse_numeric_placeholders(db)
-        # await backfill_channel_names(db, client)
         if FULL_BACKFILL_RUN:
         # clear progress so every channel starts fresh
             await db.execute("DELETE FROM crawl_progress")
             await db.commit()
             print("[crawler] 🔄 Full back-fill run: progress reset")
           
-            await ensure_parent_column(db)
-        # Add replayed column if it doesn't exist
-        # cutoff_dt = datetime(2025, 6, 21, 4, 59, 59, tzinfo=timezone.utc)
-        # cutoff_timestamp = int(cutoff_dt.timestamp() * 1000)
-        
-        # cursor = await db.execute("UPDATE posts SET replayed = 1 WHERE ts <= ?", (cutoff_timestamp,))
-        # updated_count = cursor.rowcount
-        # await db.commit()
-        # print(f"[DB] Set {updated_count} posts before June 20 11:59 PM CDT as replayed")
-
         # Start the web viewer
-        from .viewer_launcher import start_viewer_thread
-        start_viewer_thread()
+        try:
+            from .viewer_launcher import start_viewer_thread
+            start_viewer_thread()
+        except ImportError as e:
+            print(f"[Bot] Warning: Could not start web viewer: {e}")
+        except Exception as e:
+            print(f"[Bot] Warning: Web viewer failed to start: {e}")
 
         # Initialize blue_ids with seed data
         blue_ids.update(SEED_BLUE_IDS)
