@@ -205,3 +205,23 @@ async def backfill_channel_names(db, client):
             print(f"[names] {cid}: {e}")
 
     await db.commit()
+
+async def cleanse_numeric_placeholders(db):
+    """
+    • channels.name → NULL if it’s '', all-digits, or '#123…'
+    • posts.chan_id → NULL if it’s all digits            (old crawl artefact)
+    """
+    await execute_with_retry(db, """
+        UPDATE channels
+           SET name = NULL
+         WHERE name IS NULL
+            OR name = ''
+            OR name GLOB '[0-9]*'
+            OR name GLOB '#[0-9]*'
+    """)
+    await execute_with_retry(db, """
+        UPDATE posts
+           SET chan_id = NULL
+         WHERE chan_id GLOB '[0-9]*'
+    """)
+    await db.commit()
