@@ -79,20 +79,28 @@ async def crawl_one(ch, cutoff, me, db, build_snippet, blue_ids, db_add_author, 
         return
 
     # Get the last message ID we've seen (not just saved)
-    last_seen_id = await get_last_seen_id(db, ch.id)
-    after = discord.Object(id=last_seen_id) if last_seen_id else None
+    earliest_seen = await get_last_seen_id(db, ch.id)   # None first time
+    before_obj   = discord.Object(id=earliest_seen) if earliest_seen else None
     
     pulled = 0
     saved_this_run = 0
     new_messages_found = 0
-    highest_id_this_run = last_seen_id
+    earliest_this_run = earliest_seen
 
     try:
         # Use timeout to prevent hanging on slow channels
         async def _get_messages():
-            return [m async for m in ch.history(limit=PAGE_SIZE, oldest_first=True, after=after)]
-        
+            return [m async for m in ch.history(
+                limit=PAGE_SIZE,
+                before=before_obj,           # newest→oldest page
+                oldest_first=False)]
         messages = await asyncio.wait_for(_get_messages(), timeout=15.0)
+
+        if not messages:
+            return  # we reached the very beginning of the channel
+
+        messages.reverse()                 # now oldest→newest for your loop
+        new_earliest = messages[0].id      # the lowest ID in this page
         
         # If we got messages, update our progress tracker
         if messages:
@@ -128,10 +136,9 @@ async def crawl_one(ch, cutoff, me, db, build_snippet, blue_ids, db_add_author, 
                 
                 await db.commit()
         
-        # Update our progress tracker with the highest ID we've seen
-        if highest_id_this_run and highest_id_this_run != last_seen_id:
-            await update_last_seen_id(db, ch.id, highest_id_this_run)
-            await db.commit()
+        # update progress tracker with the *new* earliest ID
+        if new_earliest and new_earliest != earliest_seen:
+            await update_last_seen_id(db, ch.id, new_earliest)
         
         # Show progress for this channel/thread
         ch_type = "thread" if isinstance(ch, discord.Thread) else "channel"
