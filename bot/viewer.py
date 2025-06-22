@@ -4,7 +4,7 @@ import re
 import sqlite3
 from datetime import datetime
 from pathlib import Path
-from flask import Flask, render_template, request, jsonify, g
+from flask import Flask, request, jsonify, g, Response
 from werkzeug.serving import run_simple
 import json
 
@@ -113,7 +113,8 @@ def matches_search(content, search_params):
 @app.route('/')
 def index():
     """Main search interface"""
-    return render_template('search.html')
+    from flask import Response
+    return Response(search_template, mimetype='text/html')
 
 @app.route('/api/gms')
 def get_gms():
@@ -656,29 +657,6 @@ search_template = '''
 </body>
 </html>
 '''
-
-@app.route('/templates/search.html')
-def serve_template():
-    """Serve the search template"""
-    from flask import Response
-    return Response(search_template, mimetype='text/html')
-
-# For Flask to find the template
-app.jinja_loader = None
-
-@app.before_request
-def override_template():
-    """Override template loading to use inline template"""
-    import flask
-    original_render = flask.render_template
-    
-    def custom_render(template_name, **context):
-        if template_name == 'search.html':
-            from flask import Response
-            return search_template
-        return original_render(template_name, **context)
-    
-    flask.render_template = custom_render
 
 # Import SOURCE_GUILD_ID from config
 try:
