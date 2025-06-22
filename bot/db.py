@@ -154,13 +154,12 @@ async def get_gm_display_name(db, author_id, fallback_name):
 
 async def ensure_parent_column(db):
     """
-    If the channels table doesn’t yet have `parent_id`, add it (and the index).
-    Safe to call every startup; does nothing if the column already exists.
+    Add parent_id column + index exactly once.
+    Safe to call at every startup.
     """
-    # Does the column already exist?
-    row = await fetchone(db,
-        "PRAGMA table_info(channels) WHERE name = 'parent_id'")
-    if row:
+    # 1) fetch current columns
+    rows = await fetchall(db, "PRAGMA table_info(channels)")
+    if any(r[1] == 'parent_id' for r in rows):    # r[1] is name
         return  # already migrated
 
     print("[DB] Adding parent_id column to channels …")
