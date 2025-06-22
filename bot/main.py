@@ -185,6 +185,10 @@ async def on_ready():
         # await db.commit()
         # print(f"[DB] Set {updated_count} posts before June 20 11:59 PM CDT as replayed")
 
+        # Start the web viewer
+        from .viewer_launcher import start_viewer_thread
+        start_viewer_thread()
+
         # Initialize blue_ids with seed data
         blue_ids.update(SEED_BLUE_IDS)
         for uid in SEED_BLUE_IDS:
