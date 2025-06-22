@@ -36,15 +36,25 @@ async def update_last_seen_id(db, chan_id, message_id):
         (chan_id, message_id, timestamp)
     )
 
-async def save_channel(db, chan_id, name, accessible=True):
-    """Store (or update) a channel’s name and accessibility flag."""
+async def save_channel(db, chan_id, name, accessible=True, parent_id=None):
+    """
+    Insert or update a row in the channels table.
+
+    Parameters
+    ----------
+    db           : aiosqlite.Connection
+    chan_id      : int or str   – the channel / thread ID
+    name         : str          – display name
+    accessible   : bool         – 1 if bot can read it, 0 if not
+    parent_id    : int or None  – parent channel ID for threads
+    """
     await execute_with_retry(
         db,
         """
-        INSERT OR REPLACE INTO channels (chan_id, name, accessible)
-        VALUES (?, ?, ?)
+        INSERT OR REPLACE INTO channels (chan_id, name, accessible, parent_id)
+        VALUES (?, ?, ?, ?)
         """,
-        (chan_id, name, 1 if accessible else 0)
+        (chan_id, name, 1 if accessible else 0, parent_id)
     )
 
 
@@ -52,7 +62,8 @@ async def crawl_one(ch, cutoff, me, db, build_snippet, blue_ids, db_add_author, 
     """Crawl one channel or thread for messages"""
     global save_counter, inaccessible_channels
 
-    await save_channel(db, ch.id, ch.name, accessible=True)
+    await save_channel(db, ch.id, ch.name, accessible=True,
+                   parent_id=(ch.parent_id if isinstance(ch, discord.Thread) else None))
     
     if ch.id in IGNORED_CHANNELS: 
         return
