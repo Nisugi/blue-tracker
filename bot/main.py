@@ -1,7 +1,7 @@
 import discord, asyncio, time, signal, sys
 from .config import (TOKEN, SOURCE_GUILD_ID, AGGREGATOR_GUILD_ID, CENTRAL_CHAN_ID,
                      REPLAY_MODE, SEED_BLUE_IDS, DB_PATH, API_PAUSE)
-from .db import open_db, fetchone, fetchall
+from .db import open_db, fetchone, fetchall, ensure_parent_column
 from .repost import should_repost, repost_live, build_snippet
 from .crawler import slow_crawl
 from .github_backup import safe_github_backup
@@ -175,7 +175,7 @@ async def on_ready():
     
     try:
         db = await open_db()
-        
+        await ensure_parent_column(db)
         # Add replayed column if it doesn't exist
         # cutoff_dt = datetime(2025, 6, 21, 4, 59, 59, tzinfo=timezone.utc)
         # cutoff_timestamp = int(cutoff_dt.timestamp() * 1000)
