@@ -20,10 +20,22 @@ CREATE TABLE IF NOT EXISTS gm_names(
   gm_name TEXT NOT NULL,
   notes TEXT
 );
+CREATE TABLE IF NOT EXISTS channels (
+  chan_id     TEXT PRIMARY KEY,
+  name        TEXT,
+  accessible  INTEGER NOT NULL DEFAULT 1       -- 1 = visible, 0 = no-access
+);
+
+CREATE TABLE IF NOT EXISTS crawl_progress (     -- keeps “last-seen” id
+  chan_id      TEXT PRIMARY KEY,
+  last_seen_id INTEGER NOT NULL,
+  updated_at   INTEGER NOT NULL
+);
 CREATE INDEX IF NOT EXISTS idx_posts_chan_id ON posts(chan_id);
 CREATE INDEX IF NOT EXISTS idx_posts_author_id ON posts(author_id);
 CREATE INDEX IF NOT EXISTS idx_posts_ts ON posts(ts);
 CREATE INDEX IF NOT EXISTS idx_posts_replayed ON posts(replayed);
+CREATE INDEX IF NOT EXISTS idx_channels_name   ON channels(name);
 """
 
 async def open_db():
