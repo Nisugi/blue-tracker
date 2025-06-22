@@ -219,9 +219,30 @@ async def cleanse_numeric_placeholders(db):
             OR name GLOB '[0-9]*'
             OR name GLOB '#[0-9]*'
     """)
-    await execute_with_retry(db, """
-        UPDATE posts
-           SET chan_id = NULL
-         WHERE chan_id GLOB '[0-9]*'
-    """)
     await db.commit()
+
+async def prime_channel_table(db, guild):
+    """Make sure every text channel & thread is in `channels`."""
+    async def upsert(ch, parent_id=None):
+        await execute_with_retry(
+            db, """
+            INSERT OR REPLACE INTO channels (chan_id, name, parent_id, accessible)
+                 VALUES (?, ?, ?, 1)
+            """,
+            (str(ch.id), ch.name, str(parent_id) if parent_id else None)
+        )
+
+    # top-level text channels
+    for ch in guild.text_channels:
+        await upsert(ch)
+
+        # active threads
+        for th in ch.threads:
+            await upsert(th, parent_id=ch.id)
+
+        # archived public threads (oldest-first)
+        async for th in ch.archived_threads(private=False, oldest_first=True):
+            await upsert(th, parent_id=ch.id)
+
+    await db.commit()
+    print(f"[prime] channels table seeded with {len(guild.text_channels)} channels + threads")
