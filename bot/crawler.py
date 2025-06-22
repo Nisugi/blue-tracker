@@ -6,7 +6,7 @@ from .config import REQ_PAUSE, PAGE_SIZE, CUTOFF_DAYS, CRAWL_VERBOSITY, IGNORED_
 
 save_counter = 0
 inaccessible_channels = set()  # Cache of channel IDs we can't access
-FULL_BACKFILL_RUN = True
+finished_channels = set()
 
 # New table to track crawl progress
 CREATE_PROGRESS_TABLE = """
@@ -72,6 +72,9 @@ async def crawl_one(ch, cutoff, me, db, build_snippet, blue_ids, db_add_author, 
     # Skip if we already know we can't access this channel
     if ch.id in inaccessible_channels:
         return
+
+    if ch.id in finished_channels:
+        return
         
     if not ch.permissions_for(me).read_message_history: 
         inaccessible_channels.add(ch.id)
@@ -98,6 +101,7 @@ async def crawl_one(ch, cutoff, me, db, build_snippet, blue_ids, db_add_author, 
         messages = await asyncio.wait_for(_get_messages(), timeout=15.0)
 
         if not messages:
+            finished_channels.add(ch.id)
             return  # we reached the very beginning of the channel
 
         messages.reverse()                 # now oldest→newest for your loop
@@ -105,6 +109,7 @@ async def crawl_one(ch, cutoff, me, db, build_snippet, blue_ids, db_add_author, 
         
         for m in messages:
             if m.created_at < cutoff:
+                finished_channels.add(ch.id)
                 break
             pulled += 1
 
