@@ -16,9 +16,13 @@ async def crawl_one(ch, cutoff, me, db, build_snippet, blue_ids, db_add_author, 
         return
 
     row = await fetchone(db, "SELECT MAX(id) FROM posts WHERE chan_id = ?", (ch.id,))
-    after = discord.Object(id=int(row[0])) if row and row[0] else None
+    last_processed_id = int(row[0]) if row and row[0] else None
+    after = discord.Object(id=last_processed_id) if last_processed_id else None
+    
     pulled = 0
     saved_this_run = 0
+    new_messages_found = 0
+    highest_id_this_run = last_processed_id
 
     try:
         # Use timeout to prevent hanging on slow channels
@@ -31,6 +35,15 @@ async def crawl_one(ch, cutoff, me, db, build_snippet, blue_ids, db_add_author, 
             if m.created_at < cutoff:
                 break
             pulled += 1
+
+            if highest_id_this_run is None or m.id > highest_id_this_run:
+                highest_id_this_run = m.id
+
+            existing = await fetchone(db, "SELECT id FROM posts WHERE id = ?", (m.id,))
+            if existing:
+                continue
+                
+            new_messages_found += 1            
             
             if should_repost(m, blue_ids):
                 blue_ids.add(m.author.id)
@@ -38,23 +51,24 @@ async def crawl_one(ch, cutoff, me, db, build_snippet, blue_ids, db_add_author, 
                 snippet = await build_snippet(m)
                 
                 # Use INSERT OR IGNORE to handle duplicates gracefully
-                cursor = await db.execute(
-                    "INSERT OR IGNORE INTO posts VALUES (?,?,?,?,?,?)",
+                await db.execute(
+                    "INSERT INTO posts VALUES (?,?,?,?,?,?)",
                     (m.id, m.channel.id, m.author.id,
                      int(m.created_at.timestamp()*1000), snippet, 0)
                 )
                 
-                if cursor.rowcount:  # Only count if new row was inserted
-                    save_counter += 1
-                    saved_this_run += 1
+                save_counter += 1
+                saved_this_run += 1
                 
                 await db.commit()
         
         # Show progress for this channel/thread
         ch_type = "thread" if isinstance(ch, discord.Thread) else "channel"
-        if pulled > 0 or saved_this_run > 0:
-            print(f"[crawler] #{ch.name:<30} ({ch_type:<7}) pulled={pulled:<3} saved={saved_this_run:<2} total={save_counter:<5}")
-        elif pulled == 0:
+        if new_messages_found > 0:
+            print(f"[crawler] #{ch.name:<30} ({ch_type:<7}) pulled={pulled:<3} new={new_messages_found:<3} saved={saved_this_run:<2} total={save_counter:<5}")
+        elif pulled > 0:
+            print(f"[crawler] #{ch.name:<30} ({ch_type:<7}) pulled={pulled:<3} (all duplicates) saved={saved_this_run:<2}")
+        else:
             print(f"[crawler] #{ch.name:<30} ({ch_type:<7}) no new messages")
                 
     except asyncio.TimeoutError:
