@@ -140,13 +140,22 @@ def get_gms():
 @app.route('/api/channels')
 def get_channels():
     db = get_db()
-    rows = db.execute(
-        "SELECT chan_id, name "
-        "FROM channels "
-        "WHERE accessible = 1 "
-        "ORDER BY name COLLATE NOCASE"
-    )
-    return jsonify([{'id': r['chan_id'], 'name': r['name']} for r in rows])
+    rows = db.execute("""
+        SELECT c.chan_id,
+               c.name,
+               COALESCE(p.name, '')  AS parent_name   -- '' for top-level channels
+        FROM channels c
+        LEFT JOIN channels p ON c.parent_id = p.chan_id
+        WHERE c.accessible = 1
+        ORDER BY parent_name, c.name
+    """)
+    grouped = {}
+    for r in rows:
+        parent = r['parent_name'] or r['name']          # top-level acts as its own group
+        grouped.setdefault(parent, []).append({'id': r['chan_id'], 'name': r['name']})
+
+    return jsonify(grouped)   # {"#general":[{id,name},…], "#events":[…]}
+
 
 @app.route('/api/search')
 def search():
@@ -453,9 +462,17 @@ search_template = '''
         .choices__list--multiple.choices__item {
             margin: 0 4px 4px 0; 
         } 
-        #channelSelect + .choices { 
-            max-width: 320px; 
-        }
+        /* keep the first row compact */
+        .filters { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+
+        /* second row spans full card width */
+        .channel-row { margin-top:12px; }
+
+        /* let Choices fill the row */
+        #channelSelect + .choices { width:100%; max-width:none; }
+
+        /* when closed, keep height 40 px like other inputs */
+        .choices__inner      { min-height:40px; }
     </style>
 </head>
 <body>
@@ -480,12 +497,21 @@ search_template = '''
                 Combine multiple patterns
             </div>
             
+            <!-- 1st row = GM + dates + clear -->
             <div class="filters">
-                <select id="channelSelect" multiple></select>
-                <input type="date" id="dateFrom" placeholder="From date">
-                <input type="date" id="dateTo" placeholder="To date">
+                <input type="date" id="dateFrom">
+                <input type="date" id="dateTo">
+                <select id="gmFilter">
+                    <option value="">All GMs</option>
+                </select>
                 <button onclick="clearFilters()">Clear Filters</button>
             </div>
+
+            <!-- 2nd row = full-width channel picker -->
+            <div class="channel-row">
+                <select id="channelSelect" multiple></select>
+            </div>
+
         </div>
         
         <div class="stats" id="stats" style="display:none;">
@@ -529,29 +555,28 @@ search_template = '''
         let channelChoices;   // Choices instance
 
         async function loadChannels() {
-            try {
-                const res   = await fetch('/api/channels');
-                const chans = await res.json();
+            const res  = await fetch('/api/channels');
+            const data = await res.json();          // {group:[items]}
 
-                const select = document.getElementById('channelSelect');
-                chans.forEach(c => {
-                    const opt = document.createElement('option');
-                    opt.value = c.id;
-                    opt.text  = c.name;
-                    select.appendChild(opt);
+            const select = document.getElementById('channelSelect');
+            for (const [group, items] of Object.entries(data)) {
+                const optgroup = document.createElement('optgroup');
+                optgroup.label = group;
+                items.forEach(ch => {
+                    const opt   = document.createElement('option');
+                    opt.value   = ch.id;
+                    opt.text    = ch.name;
+                    optgroup.appendChild(opt);
                 });
-
-                // turn <select multiple> into searchable multiselect
-                channelChoices = new Choices(select, {
-                    removeItemButton: true,
-                    placeholder: true,
-                    placeholderValue: 'Select channels…',
-                    searchPlaceholderValue: 'Type to search',
-                    shouldSort: false
-                });
-            } catch (e) {
-                console.error('loadChannels failed:', e);
+                select.appendChild(optgroup);
             }
+
+            channelChoices = new Choices(select, {
+                removeItemButton:true,
+                placeholderValue:'Select channels…',
+                searchPlaceholderValue:'Type to search',
+                shouldSort:false
+            });
         }
 
         function selectedChannelIds() {
