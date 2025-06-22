@@ -459,15 +459,16 @@ search_template = '''
             min-height: 38px;
             line-height: 22px; 
         }
-        .choices__list--multiple.choices__item {
+        .choices__list--multiple .choices__item {
             margin: 0 4px 4px 0; 
         } 
         /* keep the first row compact */
-        .filters { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+        .filters { display:flex; gap:10px; flex-wrap:wrap; }
 
         /* second row spans full card width */
         .channel-row { margin-top:12px; }
-
+        .channel-row { width:100%; }
+        
         /* let Choices fill the row */
         #channelSelect + .choices { width:100%; max-width:none; }
 
@@ -501,9 +502,6 @@ search_template = '''
             <div class="filters">
                 <input type="date" id="dateFrom">
                 <input type="date" id="dateTo">
-                <select id="gmFilter">
-                    <option value="">All GMs</option>
-                </select>
                 <button onclick="clearFilters()">Clear Filters</button>
             </div>
 
@@ -724,11 +722,13 @@ search_template = '''
         
         // Clear all filters
         function clearFilters() { 
-            document.getElementById('searchQuery').value = ''; 
-            document.getElementById('gmFilter').value = ''; 
-            channelChoices.clearStore(); // clears the pills 
-            document.getElementById('dateFrom').value = ''; 
-            document.getElementById('dateTo').value = ''; 
+            document.getElementById('searchQuery').value = '';
+            document.getElementById('gmFilter').value = '';
+            channelChoices.clearStore(); // clears the pills
+            document.getElementById('dateFrom').value = '';
+            document.getElementById('dateTo').value = '';
+            history.replaceState(null,'',location.pathname);
+            localStorage.removeItem('btFilters');
             search(); 
         }
         
