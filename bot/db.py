@@ -169,3 +169,22 @@ async def ensure_parent_column(db):
         db, "CREATE INDEX IF NOT EXISTS idx_channels_parent ON channels(parent_id)")
     await db.commit()
     print("[DB] parent_id column added successfully")
+
+async def backfill_channel_names(db, client):
+    rows = await db.execute_fetchall(
+        "SELECT chan_id FROM channels WHERE name IS NULL OR name = ''")
+    print(f"[names] filling {len(rows)} missing channel/thread names …")
+    for (cid,) in rows:
+        try:
+            ch = await client.fetch_channel(int(cid))
+            await execute_with_retry(
+                db,
+                "UPDATE channels SET name = ? WHERE chan_id = ?",
+                (ch.name, cid)
+            )
+        except discord.Forbidden:
+            # bot can’t see it – leave as is
+            pass
+        except Exception as e:
+            print(f"[names] {cid}: {e}")
+    await db.commit()
