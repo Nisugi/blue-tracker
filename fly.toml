@@ -1,8 +1,4 @@
-# fly.toml app configuration file generated for blue-tracker on 2025-06-20T17:05:01-05:00
-#
-# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
-#
-
+# fly.toml app configuration file
 app = 'blue-tracker'
 primary_region = 'dfw'
 
@@ -17,4 +13,26 @@ primary_region = 'dfw'
   cpu_kind = 'shared'
   cpus = 1
 
+# This section tells Fly to expose port 8080 to the internet
+[[services]]
+  protocol = "tcp"
+  internal_port = 8080
 
+  [[services.ports]]
+    port = 80
+
+  [[services.ports]]
+    port = 443
+    handlers = ["tls", "http"]
+
+  [services.concurrency]
+    type = "connections"
+    hard_limit = 25
+    soft_limit = 20
+
+  [[services.http_checks]]
+    interval = "15s"
+    timeout = "2s"
+    grace_period = "5s"
+    method = "GET"
+    path = "/"
