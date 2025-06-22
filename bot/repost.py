@@ -174,7 +174,7 @@ async def repost_live(msg: discord.Message, dst_guild, client, db):
         is_thread = isinstance(mirror, discord.Thread)
         parent = mirror.parent if is_thread else mirror
         wh2 = await get_webhook(parent)
-         kwargs = dict(
+        kwargs = dict(
             content=body,
             username=display_name,
             avatar_url=msg.author.display_avatar.url,
@@ -182,7 +182,7 @@ async def repost_live(msg: discord.Message, dst_guild, client, db):
         )
         if is_thread:
             kwargs["thread"] = mirror
-         await safe_webhook_send(wh2, **kwargs)
+        await safe_webhook_send(wh2, **kwargs)
     except Exception as e:
         print(f"[repost] Failed to send to mirror: {e}")
 
