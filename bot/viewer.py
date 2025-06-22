@@ -178,10 +178,12 @@ def search():
             p.ts,
             p.content,
             p.replayed,
+            COALESCE(c.name, p.chan_id)                     AS channel_name,
             COALESCE(g.gm_name, a.author_name, 'Unknown') as author_name
         FROM posts p
         JOIN authors a ON p.author_id = a.author_id
         LEFT JOIN gm_names g ON a.author_id = g.author_id
+        LEFT JOIN channels c ON p.chan_id   = c.chan_id
         WHERE 1=1
     """]
     
@@ -226,10 +228,11 @@ def search():
             all_results.append({
                 'id': row['id'],
                 'channel_id': row['chan_id'],
+                'channel'   : row['channel_name'],
                 'author_id': row['author_id'],
                 'author_name': row['author_name'],
                 'timestamp': row['ts'],
-                'datetime': datetime.fromtimestamp(row['ts'] / 1000).isoformat(),
+                'datetime' : datetime.utcfromtimestamp(row['ts']/1000).isoformat() + 'Z',
                 'content': row['content'],
                 'replayed': row['replayed'],
                 'jump_url': f"https://discord.com/channels/{SOURCE_GUILD_ID}/{row['chan_id']}/{row['id']}"
@@ -474,6 +477,10 @@ search_template = '''
 
         /* when closed, keep height 40 px like other inputs */
         .choices__inner      { min-height:40px; }
+
+        .post-author, .post-channel { cursor: pointer; }
+        .post-author:hover,
+        .post-channel:hover         { text-decoration: underline; }
     </style>
 </head>
 <body>
@@ -668,7 +675,15 @@ search_template = '''
                 resultsDiv.innerHTML = data.results.map(post => `
                     <div class="post">
                         <div class="post-header">
-                            <span class="post-author">${escapeHtml(post.author_name)}</span>
+                            <span class="post-author">
+                                data-author-id="${post.author_id}">
+                                ${escapeHtml(post.author_name)}
+                            </span>
+                            <span> · </span>
+                            <span class="post-channel">
+                                data-chan-id="${post.channel_id}">
+                                #${escapeHtml(post.channel)}
+                            </span>
                             <span class="post-time">${formatDate(post.datetime)}</span>
                         </div>
                         <div class="post-content">${highlightSearch(escapeHtml(post.content || '(no content)'))}</div>
@@ -739,9 +754,8 @@ search_template = '''
             return div.innerHTML;
         }
         
-        function formatDate(isoDate) {
-            const date = new Date(isoDate);
-            return date.toLocaleString();
+        function formatDate(iso) {
+            return new Date(iso).toLocaleString();
         }
         
         function highlightSearch(text) {
@@ -785,6 +799,25 @@ search_template = '''
             // Enter key in search box
             document.getElementById('searchQuery').addEventListener('keypress', function(e) {
                 if (e.key === 'Enter') search();
+            });
+            document.getElementById('results').addEventListener('click', e => {
+                // GM name clicked?
+                const authorSpan = e.target.closest('[data-author-id]');
+                if (authorSpan) {
+                    document.getElementById('gmFilter').value = authorSpan.dataset.authorId;
+                    search(1);     // reset to page 1
+                    return;
+                }
+                // Channel name clicked?
+                const chanSpan = e.target.closest('[data-chan-id]');
+                if (chanSpan && channelChoices) {
+                    const id = chanSpan.dataset.chanId;
+                    /* add only if not already selected */
+                    if (!channelChoices.getValue(true).includes(id)) {
+                        channelChoices.setChoiceByValue(id);
+                    }
+                    search(1);
+                }
             });
         };
     </script>
