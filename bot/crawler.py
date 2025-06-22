@@ -36,9 +36,23 @@ async def update_last_seen_id(db, chan_id, message_id):
         (chan_id, message_id, timestamp)
     )
 
+async def save_channel(db, chan_id, name, accessible=True):
+    """Store (or update) a channel’s name and accessibility flag."""
+    await execute_with_retry(
+        db,
+        """
+        INSERT OR REPLACE INTO channels (chan_id, name, accessible)
+        VALUES (?, ?, ?)
+        """,
+        (chan_id, name, 1 if accessible else 0)
+    )
+
+
 async def crawl_one(ch, cutoff, me, db, build_snippet, blue_ids, db_add_author, db_add_post):
     """Crawl one channel or thread for messages"""
     global save_counter, inaccessible_channels
+
+    await save_channel(db, ch.id, ch.name, accessible=True)
     
     if ch.id in IGNORED_CHANNELS: 
         return
@@ -49,6 +63,7 @@ async def crawl_one(ch, cutoff, me, db, build_snippet, blue_ids, db_add_author, 
         
     if not ch.permissions_for(me).read_message_history: 
         inaccessible_channels.add(ch.id)
+        await save_channel(db, ch.id, ch.name, accessible=False)
         print(f"[crawler] 🚫 No access to #{ch.name} (ID: {ch.id}) - caching for future skips")
         return
 
@@ -122,10 +137,12 @@ async def crawl_one(ch, cutoff, me, db, build_snippet, blue_ids, db_add_author, 
     except discord.Forbidden:
         # No access to this channel - add to cache
         inaccessible_channels.add(ch.id)
+        await save_channel(db, ch.id, ch.name, accessible=False)
         print(f"[crawler] 🚫 Forbidden access to #{ch.name} (ID: {ch.id}) - caching for future skips")
     except discord.HTTPException as e:
         if e.status == 403:  # Another form of forbidden
             inaccessible_channels.add(ch.id)
+            await save_channel(db, ch.id, ch.name, accessible=False)
             print(f"[crawler] 🚫 HTTP 403 for #{ch.name} (ID: {ch.id}) - caching for future skips")
         elif 500 <= e.status < 600 or e.status == 429:
             print(f"[crawler] ⚠️  Skipping #{ch.name}: {e.status} {e.text or ''}".strip())
