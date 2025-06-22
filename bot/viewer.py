@@ -137,13 +137,24 @@ def get_gms():
     gms = [{'id': row['author_id'], 'name': row['display_name']} for row in cursor]
     return jsonify(gms)
 
+@app.route('/api/channels')
+def get_channels():
+    db = get_db()
+    rows = db.execute(
+        "SELECT chan_id, name "
+        "FROM channels "
+        "WHERE accessible = 1 "
+        "ORDER BY name COLLATE NOCASE"
+    )
+    return jsonify([{'id': r['chan_id'], 'name': r['name']} for r in rows])
+
 @app.route('/api/search')
 def search():
     """Search posts with advanced query support"""
     # Get parameters
     query = request.args.get('q', '').strip()
     gm_id = request.args.get('gm_id', '').strip()
-    channel_id = request.args.get('channel_id', '').strip()
+    channel_ids = [c for c in request.args.get('channels', '').split(',') if c]
     date_from = request.args.get('date_from', '')
     date_to = request.args.get('date_to', '')
     page = int(request.args.get('page', 1))
@@ -172,9 +183,10 @@ def search():
         sql_parts.append("AND p.author_id = ?")
         params.append(gm_id)
     
-    if channel_id:
-        sql_parts.append("AND p.chan_id = ?")
-        params.append(channel_id)
+    if channel_ids:
+        placeholders = ','.join('?' * len(channel_ids))
+        sql_parts.append(f"AND p.chan_id IN ({placeholders})")
+        params.extend(channel_ids)
     
     if date_from:
         try:
