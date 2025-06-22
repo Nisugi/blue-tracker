@@ -172,7 +172,7 @@ async def ensure_parent_column(db):
     print("[DB] parent_id column added successfully")
 
 async def backfill_channel_names(db, client):
-    # Fixed: Use fetchall instead of execute_fetchall
+    # Fixed: Use fetchall and access by index, not name
     rows = await fetchall(db, 
         """
         SELECT chan_id, COALESCE(name,'') as name
@@ -187,7 +187,7 @@ async def backfill_channel_names(db, client):
     print(f"[names] filling {len(rows)} missing channel/thread names …")
 
     for row in rows:
-        cid, current = row['chan_id'], row['name']  # Access by name for clarity
+        cid, current = row[0], row[1]  # Access by index for tuples
         
         # (extra safety when running on older SQLite that lacks GLOB)
         if current and not DIGITS_ONLY.fullmatch(current):
