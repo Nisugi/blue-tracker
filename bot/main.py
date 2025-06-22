@@ -1,7 +1,7 @@
 import discord, asyncio, time, signal, sys
 from .config import (TOKEN, SOURCE_GUILD_ID, AGGREGATOR_GUILD_ID, CENTRAL_CHAN_ID,
                      REPLAY_MODE, SEED_BLUE_IDS, DB_PATH, API_PAUSE)
-from .db import open_db, fetchone, fetchall, ensure_parent_column, backfill_channel_names
+from .db import open_db, fetchone, fetchall, ensure_parent_column, backfill_channel_names, cleanse_numeric_placeholders
 from .repost import should_repost, repost_live, build_snippet
 from .crawler import slow_crawl
 from .config import FULL_BACKFILL_RUN
@@ -176,6 +176,7 @@ async def on_ready():
     
     try:
         db = await open_db()
+        await cleanse_numeric_placeholders(db)
         await backfill_channel_names(db, client)
         if FULL_BACKFILL_RUN:
         # clear progress so every channel starts fresh
