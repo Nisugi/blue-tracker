@@ -151,3 +151,22 @@ async def get_gm_display_name(db, author_id, fallback_name):
     
     # Fall back to provided name
     return fallback_name  
+
+async def ensure_parent_column(db):
+    """
+    If the channels table doesn’t yet have `parent_id`, add it (and the index).
+    Safe to call every startup; does nothing if the column already exists.
+    """
+    # Does the column already exist?
+    row = await fetchone(db,
+        "PRAGMA table_info(channels) WHERE name = 'parent_id'")
+    if row:
+        return  # already migrated
+
+    print("[DB] Adding parent_id column to channels …")
+    await execute_with_retry(
+        db, "ALTER TABLE channels ADD COLUMN parent_id TEXT")
+    await execute_with_retry(
+        db, "CREATE INDEX IF NOT EXISTS idx_channels_parent ON channels(parent_id)")
+    await db.commit()
+    print("[DB] parent_id column added successfully")
