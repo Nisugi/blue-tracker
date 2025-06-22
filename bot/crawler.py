@@ -102,11 +102,6 @@ async def crawl_one(ch, cutoff, me, db, build_snippet, blue_ids, db_add_author, 
         messages.reverse()                 # now oldest→newest for your loop
         new_earliest = messages[0].id      # the lowest ID in this page
         
-        # If we got messages, update our progress tracker
-        if messages:
-            # Track the highest message ID we've seen
-            highest_id_this_run = max(m.id for m in messages)
-            
         for m in messages:
             if m.created_at < cutoff:
                 break
