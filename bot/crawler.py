@@ -89,7 +89,6 @@ async def crawl_one(ch, cutoff, me, db, build_snippet, blue_ids, db_add_author, 
     pulled = 0
     saved_this_run = 0
     new_messages_found = 0
-    earliest_this_run = earliest_seen
 
     try:
         # Use timeout to prevent hanging on slow channels
@@ -140,6 +139,7 @@ async def crawl_one(ch, cutoff, me, db, build_snippet, blue_ids, db_add_author, 
         # update progress tracker with the *new* earliest ID
         if new_earliest and new_earliest != earliest_seen:
             await update_last_seen_id(db, ch.id, new_earliest)
+            await db.commit()
         
         # Show progress for this channel/thread
         ch_type = "thread" if isinstance(ch, discord.Thread) else "channel"
@@ -147,9 +147,6 @@ async def crawl_one(ch, cutoff, me, db, build_snippet, blue_ids, db_add_author, 
             print(f"[crawler] #{ch.name:<30} ({ch_type:<7}) pulled={pulled:<3} new={new_messages_found:<3} saved={saved_this_run:<2} total={save_counter:<5}")
         elif pulled > 0:
             print(f"[crawler] #{ch.name:<30} ({ch_type:<7}) pulled={pulled:<3} (all duplicates) saved={saved_this_run:<2}")
-        else:
-            # No new messages - we're caught up
-            pass
                 
     except asyncio.TimeoutError:
         print(f"[crawler] ⚠️  TIMEOUT in #{ch.name} - skipping this pass")
