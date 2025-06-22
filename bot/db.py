@@ -1,4 +1,4 @@
-import aiosqlite, re
+import aiosqlite, re, discord
 from .config import DB_PATH
 DIGITS_ONLY = re.compile(r'^#?\d+$')
 
@@ -172,21 +172,23 @@ async def ensure_parent_column(db):
     print("[DB] parent_id column added successfully")
 
 async def backfill_channel_names(db, client):
-    # ➊ everything that is null / empty **or** looks like an ID
-    rows = await db.execute_fetchall(
+    # Fixed: Use fetchall instead of execute_fetchall
+    rows = await fetchall(db, 
         """
-        SELECT chan_id, COALESCE(name,'')            -- name may be NULL
+        SELECT chan_id, COALESCE(name,'') as name
         FROM   channels
         WHERE  name IS NULL 
            OR  name = ''
-           OR  name GLOB '[0-9]*'                    -- all digits? (SQLite)
+           OR  name GLOB '[0-9]*'
            OR  name GLOB '#[0-9]*'
         """
     )
 
     print(f"[names] filling {len(rows)} missing channel/thread names …")
 
-    for cid, current in rows:
+    for row in rows:
+        cid, current = row['chan_id'], row['name']  # Access by name for clarity
+        
         # (extra safety when running on older SQLite that lacks GLOB)
         if current and not DIGITS_ONLY.fullmatch(current):
             continue
@@ -198,8 +200,8 @@ async def backfill_channel_names(db, client):
                 "UPDATE channels SET name = ? WHERE chan_id = ?",
                 (ch.name, cid)
             )
-        except discord.Forbidden:
-            # bot can’t see it – leave unchanged
+        except discord.Forbidden:  # Now this import exists
+            # bot can't see it – leave unchanged
             pass
         except Exception as e:
             print(f"[names] {cid}: {e}")
@@ -241,7 +243,7 @@ async def prime_channel_table(db, guild):
             await upsert(th, parent_id=ch.id)
 
         # archived public threads (oldest-first)
-        async for th in ch.archived_threads(private=False, oldest_first=True):
+        async for th in ch.archived_threads(private=False):
             await upsert(th, parent_id=ch.id)
 
     await db.commit()
