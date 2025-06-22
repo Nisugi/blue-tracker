@@ -2,7 +2,7 @@ import asyncio, discord, time
 from datetime import datetime, timedelta, timezone
 from .db import fetchone, execute_with_retry
 from .repost import should_repost, cleanup_caches
-from .config import REQ_PAUSE, PAGE_SIZE, CUTOFF_DAYS, CRAWL_VERBOSITY, IGNORED_CHANNELS
+from .config import REQ_PAUSE, PAGE_SIZE, CUTOFF_DAYS, CRAWL_VERBOSITY, IGNORED_CHANNELS, FULL_BACKFILL_RUN
 
 save_counter = 0
 inaccessible_channels = set()  # Cache of channel IDs we can't access
