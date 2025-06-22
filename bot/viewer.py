@@ -107,8 +107,12 @@ def matches_search(content, search_params):
             return True
     
     # If no search criteria, don't match
-    return bool(search_params['regex'] or search_params['phrases'] or 
-                search_params['and_groups'] or search_params['or_terms'])
+    if not (search_params['regex'] or
+            search_params['phrases'] or
+            search_params['and_groups'] or
+            search_params['or_terms']):
+        return True   # no criteria at all → match everything
+    return False      # criteria exist but none matched
 
 @app.route('/')
 def index():
