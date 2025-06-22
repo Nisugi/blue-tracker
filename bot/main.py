@@ -176,6 +176,10 @@ async def on_ready():
     
     try:
         db = await open_db()
+        
+        # Ensure parent_id column exists before any operations
+        await ensure_parent_column(db)
+        
         if FULL_BACKFILL_RUN:
         # clear progress so every channel starts fresh
             await db.execute("DELETE FROM crawl_progress")
