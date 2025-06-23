@@ -182,6 +182,7 @@ async def backfill_channel_names(db, client):
         FROM   channels
         WHERE  name IS NULL 
            OR  name = ''
+           OR  name = '#'
            OR  name GLOB '[0-9]*'
            OR  name GLOB '#[0-9]*'
         """
