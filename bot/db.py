@@ -33,8 +33,9 @@ CREATE TABLE IF NOT EXISTS crawl_progress (     -- keeps “last-seen” id
   updated_at   INTEGER NOT NULL
 );
 CREATE TABLE IF NOT EXISTS bot_metadata (
-  key   TEXT PRIMARY KEY,
-  value TEXT
+  key        TEXT PRIMARY KEY,
+  value      TEXT,
+  updated_at INTEGER
 );
 CREATE INDEX IF NOT EXISTS idx_posts_chan_id ON posts(chan_id);
 CREATE INDEX IF NOT EXISTS idx_posts_author_id ON posts(author_id);
@@ -374,3 +375,19 @@ async def fix_channel_names_on_startup(db, client, src_guild):
     await db.commit()
     
     print(f"[Startup] Channel fix complete: {fixed} fixed, {failed} failed")
+
+async def ensure_bot_metadata_columns(db):
+    """
+    Make sure bot_metadata has   key, value, updated_at.
+    Runs safely every start-up.
+    """
+    rows = await fetchall(db, "PRAGMA table_info(bot_metadata)")
+    if not rows:
+        # table didn’t exist (first run) – CREATE_SQL has correct schema already
+        return
+
+    if not any(col[1] == "updated_at" for col in rows):   # col[1] = column name
+        print("[DB] Adding updated_at column to bot_metadata …")
+        await execute_with_retry(
+            db, "ALTER TABLE bot_metadata ADD COLUMN updated_at INTEGER")
+        await db.commit()
