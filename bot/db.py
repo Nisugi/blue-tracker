@@ -1,5 +1,6 @@
 import aiosqlite, re, discord, time, asyncio
 from .config import DB_PATH, REQ_PAUSE
+from pathlib import Path, shutil
 DIGITS_ONLY = re.compile(r'^#?\d+$')
 
 CREATE_SQL = """
@@ -51,6 +52,11 @@ async def open_db():
         # Ensure the data directory exists
         DB_PATH.parent.mkdir(parents=True, exist_ok=True)
         
+        SEED_PATH = Path("/app/bluetracker_seed.db")   # inside the image
+        if not DB_PATH.exists() and SEED_PATH.exists():
+            print("[DB] No database on volume – seeding from image copy")
+            DB_PATH.write_bytes(SEED_PATH.read_bytes())   # or shutil.copy
+
         db = await aiosqlite.connect(DB_PATH)
         await db.executescript(CREATE_SQL)
         
