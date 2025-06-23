@@ -1,4 +1,4 @@
-import aiosqlite, re, discord, time
+import aiosqlite, re, discord, time, asyncio
 from .config import DB_PATH, REQ_PAUSE
 DIGITS_ONLY = re.compile(r'^#?\d+$')
 
@@ -229,6 +229,8 @@ async def cleanse_numeric_placeholders(db):
 
 async def prime_channel_table(db, guild):
     """Seed `channels` with names + parent_id, respecting rate-limits."""
+    # keep an in-memory set so we don't hammer the same forbidden channels
+    inaccessible_channels: set[str] = set()
     async def upsert(ch, parent_id=None, accessible=True):
         await execute_with_retry(
             db,
@@ -255,6 +257,7 @@ async def prime_channel_table(db, guild):
         except discord.Forbidden:
             # we can see the channel but not its history – remember & skip
             inaccessible_channels.add(ch.id)
+            inaccessible_channels.add(str(ch.id))
             await upsert(ch, accessible=False)
         finally:
             # ★ give Discord a breather no matter what
