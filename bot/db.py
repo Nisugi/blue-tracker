@@ -212,21 +212,6 @@ async def backfill_channel_names(db, client):
 
     await db.commit()
 
-async def cleanse_numeric_placeholders(db):
-    """
-    • channels.name → NULL if it’s '', all-digits, or '#123…'
-    • posts.chan_id → NULL if it’s all digits            (old crawl artefact)
-    """
-    await execute_with_retry(db, """
-        UPDATE channels
-           SET name = NULL
-         WHERE name IS NULL
-            OR name = ''
-            OR name GLOB '[0-9]*'
-            OR name GLOB '#[0-9]*'
-    """)
-    await db.commit()
-
 async def prime_channel_table(db, guild):
     """Seed `channels` with names + parent_id, respecting rate-limits."""
     # keep an in-memory set so we don't hammer the same forbidden channels
