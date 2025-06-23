@@ -1,7 +1,7 @@
 import discord, asyncio, time, signal, sys
 from .config import (TOKEN, SOURCE_GUILD_ID, AGGREGATOR_GUILD_ID, CENTRAL_CHAN_ID,
                      REPLAY_MODE, SEED_BLUE_IDS, DB_PATH, API_PAUSE)
-from .db import open_db, fetchone, fetchall, ensure_parent_column, backfill_channel_names, cleanse_numeric_placeholders, prime_channel_table
+from .db import open_db, fetchone, fetchall, ensure_parent_column, backfill_channel_names, cleanse_numeric_placeholders, prime_channel_table, fix_channel_names_on_startup
 from .repost import should_repost, repost_live, build_snippet
 from .crawler import slow_crawl
 from .config import FULL_BACKFILL_RUN
@@ -221,6 +221,7 @@ async def on_ready():
             src_guild = client.get_guild(SOURCE_GUILD_ID)
             dst_guild = client.get_guild(AGGREGATOR_GUILD_ID)
 
+        await fix_channel_names_on_startup(db, client, src_guild)
         await prime_channel_table(db, src_guild)
 
         # Show database stats
