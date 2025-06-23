@@ -17,7 +17,7 @@ async def db_add_post(m, snippet, already_replayed=False):
     """Add post to database"""
     await db.execute(
         "INSERT OR IGNORE INTO channels (chan_id) VALUES (?)",
-        (str(msg.channel.id),)
+        (str(m.channel.id),)
     )
     await db.execute("INSERT OR IGNORE INTO posts VALUES (?,?,?,?,?,?)",
                      (m.id, m.channel.id, m.author.id,
