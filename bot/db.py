@@ -265,3 +265,108 @@ async def prime_channel_table(db, guild):
 
     await db.commit()
     print(f"[prime] channels table seeded with {len(guild.text_channels)} channels + threads")
+
+async def fix_channel_names_on_startup(db, client, src_guild):
+    """Fix channel names during bot startup - runs with existing db connection"""
+    print("[Startup] Checking for channel name issues...")
+    
+    # Check if we've already done this fix
+    fix_check = await fetchone(db, "SELECT value FROM bot_metadata WHERE key = 'channel_fix_v1'")
+    if fix_check:
+        print("[Startup] Channel names already fixed, skipping")
+        return
+    
+    # First, create the metadata table if it doesn't exist
+    await db.execute("""
+        CREATE TABLE IF NOT EXISTS bot_metadata (
+            key TEXT PRIMARY KEY,
+            value TEXT,
+            updated_at INTEGER
+        )
+    """)
+    
+    # Find problematic channel names
+    problematic = await fetchall(db, """
+        SELECT DISTINCT chan_id, name
+        FROM channels
+        WHERE name IS NULL 
+           OR name = ''
+           OR name GLOB '[0-9]*'
+           OR name GLOB '#[0-9]*'
+        ORDER BY chan_id
+    """)
+    
+    if not problematic:
+        print("[Startup] No problematic channel names found")
+        # Mark as complete
+        await db.execute(
+            "INSERT OR REPLACE INTO bot_metadata (key, value, updated_at) VALUES (?, ?, ?)",
+            ('channel_fix_v1', 'completed', int(time.time()))
+        )
+        await db.commit()
+        return
+    
+    print(f"[Startup] Found {len(problematic)} channels with problematic names, fixing...")
+    
+    fixed = 0
+    failed = 0
+    
+    for chan_id, current_name in problematic:
+        try:
+            # Try to get from cache first
+            channel = client.get_channel(int(chan_id))
+            if not channel:
+                channel = await client.fetch_channel(int(chan_id))
+            
+            if channel and channel.name:
+                # Determine parent_id for threads
+                parent_id = None
+                if isinstance(channel, discord.Thread):
+                    parent_id = str(channel.parent_id)
+                
+                await db.execute("""
+                    UPDATE channels 
+                    SET name = ?, parent_id = ?
+                    WHERE chan_id = ?
+                """, (channel.name, parent_id, chan_id))
+                
+                fixed += 1
+                if fixed % 10 == 0:
+                    print(f"[Startup] Progress: {fixed} channels fixed...")
+                    await db.commit()  # Commit periodically
+                
+            else:
+                # Mark as inaccessible
+                await db.execute("""
+                    UPDATE channels 
+                    SET name = ?, accessible = 0
+                    WHERE chan_id = ?
+                """, (f"deleted-{chan_id}", chan_id))
+                failed += 1
+                
+        except discord.Forbidden:
+            await db.execute("""
+                UPDATE channels 
+                SET name = ?, accessible = 0
+                WHERE chan_id = ?
+            """, (f"no-access-{chan_id}", chan_id))
+            failed += 1
+        except Exception as e:
+            print(f"[Startup] Error fixing channel {chan_id}: {e}")
+            failed += 1
+        
+        # Be nice to Discord API
+        if (fixed + failed) % 5 == 0:
+            await asyncio.sleep(1)
+    
+    # Final commit
+    await db.commit()
+    
+    # Mark fix as complete
+    await db.execute(
+        "INSERT OR REPLACE INTO bot_metadata (key, value, updated_at) VALUES (?, ?, ?)",
+        ('channel_fix_v1', 'completed', int(time.time()))
+    )
+    await db.commit()
+    
+    print(f"[Startup] Channel fix complete: {fixed} fixed, {failed} failed")
