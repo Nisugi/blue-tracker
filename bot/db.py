@@ -1,5 +1,5 @@
 import aiosqlite, re, discord, time
-from .config import DB_PATH
+from .config import DB_PATH, REQ_PAUSE
 DIGITS_ONLY = re.compile(r'^#?\d+$')
 
 CREATE_SQL = """
@@ -227,47 +227,40 @@ async def cleanse_numeric_placeholders(db):
     await db.commit()
 
 async def prime_channel_table(db, guild):
-    """Make sure every text channel & thread is in `channels`."""
-    async def upsert(ch, parent_id=None):
+    """Seed `channels` with names + parent_id, respecting rate-limits."""
+    async def upsert(ch, parent_id=None, accessible=True):
         await execute_with_retry(
-            db, """
-            INSERT OR REPLACE INTO channels (chan_id, name, parent_id, accessible)
-                 VALUES (?, ?, ?, 1)
-            """,
-            (str(ch.id), ch.name, str(parent_id) if parent_id else None)
+            db,
+            """INSERT OR REPLACE INTO channels
+               (chan_id, name, parent_id, accessible)
+               VALUES (?, ?, ?, ?)""",
+            (str(ch.id), ch.name, str(parent_id) if parent_id else None,
+             1 if accessible else 0)
         )
 
-    print("[prime] Starting channel table seeding...")
-    
-    # top-level text channels
-    for ch in guild.text_channels:
-        print(f"[prime] Processing channel #{ch.name}")
-        await upsert(ch)
+    print("[prime] starting channel table seeding")
 
-        # active threads
+    for ch in guild.text_channels:
+        await upsert(ch)                       # top-level itself
+
+        # active threads (zero-cost, cached)
         for th in ch.threads:
-            print(f"[prime] Processing active thread #{th.name}")
             await upsert(th, parent_id=ch.id)
 
-        # archived public threads - with detailed error handling
+        # archived public threads → **one API hit per parent**
         try:
-            print(f"[prime] Fetching archived threads for #{ch.name}")
-            thread_count = 0
             async for th in ch.archived_threads(private=False):
-                print(f"[prime] Processing archived thread #{th.name}")
                 await upsert(th, parent_id=ch.id)
-                thread_count += 1
-            print(f"[prime] Processed {thread_count} archived threads for #{ch.name}")
-        except Exception as e:
-            print(f"[prime] Error processing archived threads for #{ch.name}: {e}")
-            print(f"[prime] Error type: {type(e)}")
-            import traceback
-            traceback.print_exc()
-            # Continue with other channels instead of failing completely
-            continue
+        except discord.Forbidden:
+            # we can see the channel but not its history – remember & skip
+            inaccessible_channels.add(ch.id)
+            await upsert(ch, accessible=False)
+        finally:
+            # ★ give Discord a breather no matter what
+            await asyncio.sleep(REQ_PAUSE)
 
     await db.commit()
-    print(f"[prime] channels table seeded with {len(guild.text_channels)} channels + threads")
+    print(f"[prime] done – seeded {len(guild.text_channels)} channels (+ threads)")
 
 async def fix_channel_names_on_startup(db, client, src_guild):
     """Fix channel names during bot startup - runs with existing db connection"""
