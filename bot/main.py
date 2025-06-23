@@ -177,6 +177,7 @@ async def on_ready():
     try:
         db = await open_db()
         
+        await ensure_bot_metadata_columns(db)
         # Ensure parent_id column exists before any operations
         await ensure_parent_column(db)
         
