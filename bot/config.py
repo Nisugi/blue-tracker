@@ -93,6 +93,7 @@ SEED_BLUE_IDS = {
 IGNORED_CHANNELS = {
     613879283038814228,  # Off-Topic
     1333880748461260921, # Platinum off-topic thread
+    1171221232402845767, # Games and Trivia
 }
 
 GM_NAME_OVERRIDES = {

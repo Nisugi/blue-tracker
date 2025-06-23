@@ -1,6 +1,7 @@
-import aiosqlite, re, discord, time, asyncio
+import aiosqlite, re, time, asyncio, shutil
 from .config import DB_PATH, REQ_PAUSE
-from pathlib import Path, shutil
+from pathlib import Path
+from discord import TextChannel, ForumChannel
 DIGITS_ONLY = re.compile(r'^#?\d+$')
 
 CREATE_SQL = """
@@ -234,7 +235,12 @@ async def prime_channel_table(db, guild):
 
     print("[prime] starting channel table seeding")
 
-    for ch in guild.text_channels:
+    text_like_channels = [
+        c for c in guild.channels
+        if isinstance(c, (TextChannel, ForumChannel))
+    ]
+
+    for ch in text_like_channels:
         await upsert(ch)                       # top-level itself
 
         # active threads (zero-cost, cached)
@@ -255,7 +261,7 @@ async def prime_channel_table(db, guild):
             await asyncio.sleep(REQ_PAUSE)
 
     await db.commit()
-    print(f"[prime] done – seeded {len(guild.text_channels)} channels (+ threads)")
+    print(f"[prime] done – seeded {len(text_like_channels)} channels (+ threads)")
 
 async def fix_channel_names_on_startup(db, client, src_guild):
     """Fix channel names during bot startup - runs with existing db connection"""

@@ -1,5 +1,6 @@
-import asyncio, discord, time
+import asyncio, time
 from datetime import datetime, timedelta, timezone
+from discord import TextChannel, ForumChannel
 from .db import fetchone, execute_with_retry
 from .repost import should_repost, cleanup_caches
 from .config import REQ_PAUSE, PAGE_SIZE, CUTOFF_DAYS, CRAWL_VERBOSITY, IGNORED_CHANNELS, FULL_BACKFILL_RUN
@@ -167,12 +168,16 @@ async def crawl_one(ch, cutoff, me, db, build_snippet, blue_ids, db_add_author, 
     except Exception as e:
         print(f"[crawler] ❌ Unexpected error in #{ch.name}: {e}")
 
-async def iter_all_threads(parent: discord.TextChannel):
+async def iter_all_threads(parent: discord.abc.GuildChannel):
     """Yield active threads first, then archived public threads."""
     # Active threads first
     for th in parent.threads:
         yield th
 
+    async def _yield(aiter):
+        buf = [t async for t in aiter]
+        for t in reversed(buf):
+            yield t
     # Then archived public threads
     try:
         # Fixed: Removed oldest_first parameter and collect all first
@@ -208,10 +213,14 @@ async def slow_crawl(src_guild, db, build_snippet, db_add_author, db_add_post, b
     sweep_number = 0
     
     # Calculate accessible channels
-    all_channels = [c for c in src_guild.text_channels if c.id not in IGNORED_CHANNELS]
+    text_like_channels = [
+        c for c in src_guild.channels
+        if isinstance(c, (TextChannel, ForumChannel))
+    ]
+    all_channels = [c for c in text_like_channels if c.id not in IGNORED_CHANNELS]
     
     print(f"[crawler] Starting slow crawl with {CUTOFF_DAYS} day cutoff")
-    print(f"[crawler] Total channels: {len(src_guild.text_channels)}, Non-ignored: {len(all_channels)}")
+    print(f"[crawler] Total channels: {len(text_like_channels)}, Non-ignored: {len(all_channels)}")
 
     while True:
         try:
@@ -227,7 +236,7 @@ async def slow_crawl(src_guild, db, build_snippet, db_add_author, db_add_post, b
             threads_processed = 0
             
             # Crawl all text channels
-            for parent in src_guild.text_channels:
+            for parent in text_like_channels:
                 if parent.id in IGNORED_CHANNELS:
                     continue
                     
