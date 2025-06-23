@@ -43,7 +43,6 @@ CREATE INDEX IF NOT EXISTS idx_posts_ts ON posts(ts);
 CREATE INDEX IF NOT EXISTS idx_posts_replayed ON posts(replayed);
 CREATE INDEX IF NOT EXISTS idx_channels_name   ON channels(name);
 CREATE INDEX IF NOT EXISTS idx_channels_parent ON channels(parent_id);
-CREATE INDEX IF NOT EXISTS idx_posts_chan_id    ON posts(chan_id);
 """
 
 async def open_db():
@@ -129,7 +128,6 @@ async def get_db_stats(db):
 async def cleanup_old_posts(db, days_to_keep=365):
     """Remove posts older than specified days"""
     try:
-        import time
         cutoff_ts = int((time.time() - (days_to_keep * 24 * 60 * 60)) * 1000)
         
         cursor = await db.execute("DELETE FROM posts WHERE ts < ?", (cutoff_ts,))
@@ -280,15 +278,6 @@ async def fix_channel_names_on_startup(db, client, src_guild):
     if fix_check:
         print("[Startup] Channel names already fixed, skipping")
         return
-    
-    # First, create the metadata table if it doesn't exist
-    await db.execute("""
-        CREATE TABLE IF NOT EXISTS bot_metadata (
-            key TEXT PRIMARY KEY,
-            value TEXT,
-            updated_at INTEGER
-        )
-    """)
     
     # Find problematic channel names
     problematic = await fetchall(db, """
